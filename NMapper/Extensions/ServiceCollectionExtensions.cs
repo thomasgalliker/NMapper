@@ -1,7 +1,7 @@
 ﻿using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace NMapper.Extensions
+namespace NMapper
 {
     public static class ServiceCollectionExtensions
     {
