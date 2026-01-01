@@ -21,5 +21,4 @@ namespace NMapper.Tests.Logging
         {
         }
     }
-
 }
