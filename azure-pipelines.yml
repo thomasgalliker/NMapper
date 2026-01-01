@@ -22,10 +22,9 @@ trigger:
     - Docs/*
 
 variables:
-  solution: 'NMapper.sln'
   buildPlatform: 'Any CPU'
   buildConfiguration: 'Release'
-  majorVersion: 1
+  majorVersion: 2
   minorVersion: 0
   patchVersion: $[counter(format('{0}.{1}', variables.majorVersion, variables.minorVersion), 0)]
   ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
@@ -67,6 +66,11 @@ steps:
     FailOnWarning: false
     DisableTelemetry: true
 
+- task: UseDotNet@2
+  displayName: 'Use .NET 9.x'
+  inputs:
+    version: 9.x
+
 - task: NuGetToolInstaller@0
   displayName: 'Use NuGet 6.x'
   inputs:
@@ -76,12 +80,16 @@ steps:
   displayName: 'NuGet restore'
   inputs:
     command: restore
-    projects: '$(solution)'
+    projects: |
+      NMapper/**/*.csproj
+      **/*.Tests.csproj
 
 - task: DotNetCoreCLI@2
   displayName: 'Build solution'
   inputs:
-    projects: '$(solution)'
+    projects: |
+      NMapper/**/*.csproj
+      **/*.Tests.csproj
     arguments: '--no-restore --configuration $(buildConfiguration)'
 
 - task: DotNetCoreCLI@2
