@@ -23,14 +23,14 @@ namespace NMapper.Tests
             var mappings = Array.Empty<IMapping>();
             IMapper mapper = new Mapper(mappings);
 
-            var personDto = new PersonDto
+            var person = new Person
             {
                 Id = 1,
                 Name = "John Doe",
             };
 
             // Act
-            Action action = () => mapper.Map<PersonDto>(personDto);
+            Action action = () => mapper.Map<PersonDto>(person);
 
             // Assert
             action.Should().Throw<MissingMappingException>();
@@ -219,5 +219,29 @@ namespace NMapper.Tests
             // Assert
             targetEnum.Should().Be(TargetEnum.Second);
         }
+
+        [Fact]
+        public void ShouldMap_ThrowsMappingException()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new NotImplementedMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            var person = new Person
+            {
+                Id = 1,
+                Name = "John Doe",
+            };
+
+            // Act
+            Action action = () => mapper.Map<PersonDto>(person);
+
+            // Assert
+            action.Should().Throw<MappingException>().WithInnerException<NotImplementedException>();
+        }
+
     }
 }

@@ -92,6 +92,11 @@ namespace NMapper
                 this.logger.LogDebug($"Map from {sourceType.Name} → {targetType.Name} using {mappingType.Name}");
                 return mapMethodInfo.Invoke(mapping, new[] { source });
             }
+            catch (TargetInvocationException ex)
+            {
+                var innerException = ex.InnerException != null ? ex.InnerException : ex;
+                throw new MappingException(sourceType, targetType, mapping.GetType(), innerException);
+            }
             catch (Exception ex)
             {
                 throw new MappingException(sourceType, targetType, mapping.GetType(), ex);
@@ -106,6 +111,11 @@ namespace NMapper
             {
                 this.logger.LogDebug($"Map from {sourceType.Name} → {targetType.Name} using {mappingType.Name}");
                 return mapMethodInfo.Invoke(mapping, new[] { source, this });
+            }
+            catch (TargetInvocationException ex)
+            {
+                var innerException = ex.InnerException != null ? ex.InnerException : ex;
+                throw new MappingException(sourceType, targetType, mapping.GetType(), innerException);
             }
             catch (Exception ex)
             {
