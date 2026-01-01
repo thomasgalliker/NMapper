@@ -237,7 +237,7 @@ namespace NMapper.Tests
             };
 
             // Act
-            Action action = () => mapper.Map<PersonDto>(person);
+            Action action = () => mapper.Map<string>(person);
 
             // Assert
             action.Should().Throw<MappingException>().WithInnerException<NotImplementedException>();
