@@ -1,4 +1,4 @@
-﻿namespace ObjectMapper
+﻿namespace NMapper
 {
     /// <summary>
     /// Marker interface for mapping implementations.

@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
 
-namespace ObjectMapper.Extensions
+namespace NMapper
 {
     public class MappingOptions
     {

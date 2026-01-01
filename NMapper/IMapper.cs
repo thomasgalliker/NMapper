@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-namespace ObjectMapper
+namespace NMapper
 {
     public interface IMapper
     {

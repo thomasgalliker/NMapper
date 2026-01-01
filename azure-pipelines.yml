@@ -1,7 +1,7 @@
 ####################################################################
 # Azure DevOps Build Configuration
 #
-# (c)2025 superdev GmbH
+# (c)2026 superdev GmbH
 ####################################################################
 
 name: $[format('{0}', variables['buildName'])]
@@ -22,7 +22,7 @@ trigger:
     - Docs/*
 
 variables:
-  solution: 'ObjectMapper.sln'
+  solution: 'NMapper.sln'
   buildPlatform: 'Any CPU'
   buildConfiguration: 'Release'
   majorVersion: 1
@@ -55,7 +55,7 @@ steps:
     InsertAttributes: true
     FileEncoding: 'auto'
     WriteBOM: false
-    Product: 'ObjectMapper'
+    Product: 'NMapper'
     Description: ''
     Company: 'superdev GmbH'
     Copyright: '(c) $(date:YYYY) superdev GmbH'
@@ -100,10 +100,10 @@ steps:
     assemblyfilters: '-xunit*'
     
 - task: DotNetCoreCLI@2
-  displayName: 'Pack ObjectMapper'
+  displayName: 'Pack NMapper'
   inputs:
     command: pack
-    packagesToPack: ObjectMapper/ObjectMapper.csproj
+    packagesToPack: NMapper/NMapper.csproj
     versioningScheme: byEnvVar
     versionEnvVar: semVersion
     nobuild: true

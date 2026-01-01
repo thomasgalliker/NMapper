@@ -1,4 +1,4 @@
-﻿namespace ObjectMapper
+﻿namespace NMapper
 {
     public class MissingMappingException : Exception
     {
