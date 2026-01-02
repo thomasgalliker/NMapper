@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using Microsoft.Extensions.DependencyInjection;
 using NMapper.Extensions;
 
 namespace NMapper
@@ -7,15 +8,21 @@ namespace NMapper
     {
         public MappingOptions()
         {
-            this.MappingAssemblies = Array.Empty<Assembly>();
             this.Mappings = new MappingOptionsMappingCollection();
+            this.ServiceLifetime = ServiceLifetime.Singleton;
         }
 
-        public Assembly[] MappingAssemblies { get; set; }
-
-        public Assembly? MappingAssembly { get; set; }
-
         public MappingOptionsMappingCollection Mappings { get; }
+
+        /// <summary>
+        /// Configures the service lifetime for the registered <see cref="IMapper"/> and <see cref="IMapping"/> registrations.
+        /// Default: <see cref="ServiceLifetime.Singleton"/>.
+        /// </summary>
+        /// <remarks>
+        /// Be cautious when using different service lifetimes.
+        /// There are strict rules regarding service lifetimes of chained dependencies in Microsoft.Extensions.DependencyInjection.
+        /// </remarks>
+        public ServiceLifetime ServiceLifetime { get; set; }
     }
 
     public class MappingOptionsMappingCollection
@@ -34,6 +41,16 @@ namespace NMapper
             }
 
             this.MappingAssemblies.AddRange(assemblies);
+        }
+
+        public void Add(IEnumerable<IMapping> mappings)
+        {
+            if (mappings == null)
+            {
+                throw new ArgumentNullException(nameof(mappings));
+            }
+
+            this.Mappings.AddRange(mappings);
         }
 
         public void Add(params IMapping[] mappings)
