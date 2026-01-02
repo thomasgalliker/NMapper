@@ -128,7 +128,7 @@ namespace NMapper
             }
         }
 
-        public IEnumerable<(Type, Type)> Mappings => this.map.Keys;
+        public IEnumerable<(Type SourceType, Type TargetType)> Mappings => this.map.Keys;
 
         [return: NotNullIfNotNull(nameof(source))]
         public TTarget? Map<TTarget>(object? source)
