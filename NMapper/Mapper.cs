@@ -98,7 +98,7 @@ namespace NMapper
 
             try
             {
-                this.logger.LogDebug($"Map from {sourceType.GetFormattedName()} → {targetType.GetFormattedName()} using {mappingType.GetFormattedName()}");
+                this.logger.LogDebug($"{mappingType.GetFormattedName()} maps from {sourceType.GetFormattedName()} → {targetType.GetFormattedName()}");
 
                 object? result;
 

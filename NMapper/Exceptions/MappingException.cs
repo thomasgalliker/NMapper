@@ -24,7 +24,7 @@ namespace NMapper
                 targetTypeName = targetType.GetFormattedFullname();
             }
 
-            return $"Failed to map from {sourceTypeName} → {targetTypeName} using mapping {mappingTypeName}";
+            return $"{mappingTypeName} failed to map from {sourceTypeName} → {targetTypeName}";
         }
 
         public Type SourceType { get; }
