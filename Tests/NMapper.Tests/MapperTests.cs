@@ -249,8 +249,8 @@ namespace NMapper.Tests
             var aggregateException = action.Should().Throw<AggregateException>().Which;
             aggregateException.InnerExceptions.Should().HaveCount(2);
             aggregateException.InnerExceptions.All(ex => ex is MissingMappingException).Should().BeTrue();
-            aggregateException.InnerExceptions[0].Message.Should().Contain("No mapping registered for Address → String");
-            aggregateException.InnerExceptions[1].Message.Should().Contain("No mapping registered for Country → CountryDto");
+            aggregateException.InnerExceptions[0].Message.Should().Contain("No mapping registered for Address to String");
+            aggregateException.InnerExceptions[1].Message.Should().Contain("No mapping registered for Country to CountryDto");
         }
 
         [Fact]
@@ -286,8 +286,8 @@ namespace NMapper.Tests
             var aggregateException = action.Should().Throw<AggregateException>().Which;
             aggregateException.InnerExceptions.Should().HaveCount(2);
             aggregateException.InnerExceptions.All(ex => ex is MissingMappingException).Should().BeTrue();
-            aggregateException.InnerExceptions[0].Message.Should().Contain("No mapping registered for Person → Int32");
-            aggregateException.InnerExceptions[1].Message.Should().Contain("No mapping registered for Person → Single");
+            aggregateException.InnerExceptions[0].Message.Should().Contain("No mapping registered for Person to Int32");
+            aggregateException.InnerExceptions[1].Message.Should().Contain("No mapping registered for Person to Single");
         }
 
         [Fact]
@@ -392,8 +392,8 @@ namespace NMapper.Tests
             var aggregateException = action.Should().Throw<AggregateException>().Which;
             aggregateException.InnerExceptions.Should().HaveCount(2);
             aggregateException.InnerExceptions.All(ex => ex is MissingMappingException).Should().BeTrue();
-            aggregateException.InnerExceptions[0].Message.Should().Contain("No mapping registered for Person → Int32");
-            aggregateException.InnerExceptions[1].Message.Should().Contain("No mapping registered for Person → Single");
+            aggregateException.InnerExceptions[0].Message.Should().Contain("No mapping registered for Person to Int32");
+            aggregateException.InnerExceptions[1].Message.Should().Contain("No mapping registered for Person to Single");
         }
     }
 }

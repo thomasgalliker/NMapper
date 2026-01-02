@@ -22,7 +22,7 @@ namespace NMapper
                 targetTypeName = targetType.GetFormattedFullname();
             }
 
-            return $"Duplicate mapping registered for {sourceTypeName} → {targetTypeName}";
+            return $"Duplicate mapping registered for {sourceTypeName} to {targetTypeName}";
         }
 
         public Type SourceType { get; }

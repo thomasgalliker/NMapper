@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 namespace NMapper
 {
-    [DebuggerDisplay("DelegateMapping: {NMapper.Extensions.TypeExtensions.GetFormattedName(typeof(TSource))} → {NMapper.Extensions.TypeExtensions.GetFormattedName(typeof(TTarget))}")]
+    [DebuggerDisplay("DelegateMapping: {NMapper.Extensions.TypeExtensions.GetFormattedName(typeof(TSource))} to {NMapper.Extensions.TypeExtensions.GetFormattedName(typeof(TTarget))}")]
     public class DelegateMapping<TSource, TTarget> : IMapping<TSource, TTarget>
     {
         private readonly Func<TSource, TTarget> map;

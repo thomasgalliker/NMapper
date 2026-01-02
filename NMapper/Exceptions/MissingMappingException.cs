@@ -22,7 +22,7 @@ namespace NMapper
                 targetTypeName = targetType.GetFormattedFullname();
             }
 
-            return $"No mapping registered for {sourceTypeName} → {targetTypeName}";
+            return $"No mapping registered for {sourceTypeName} to {targetTypeName}";
         }
 
         public Type SourceType { get; }
