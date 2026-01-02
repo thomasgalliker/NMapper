@@ -28,14 +28,9 @@ namespace NMapper
                 return new Mapper(logger, mappings);
             });
 
-            foreach (var assembly in mappingOptions.MappingAssemblies)
+            foreach (var assembly in mappingOptions.Mappings.MappingAssemblies)
             {
                 services.AddMappers(assembly);
-            }
-
-            if (mappingOptions.MappingAssembly != null)
-            {
-                services.AddMappers(mappingOptions.MappingAssembly);
             }
 
             if (mappingOptions.Mappings.MappingTypes.Any())

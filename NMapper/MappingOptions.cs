@@ -20,9 +20,21 @@ namespace NMapper
 
     public class MappingOptionsMappingCollection
     {
+        internal List<Assembly> MappingAssemblies { get; } = new List<Assembly>();
+
         internal List<IMapping> Mappings { get; } = new List<IMapping>();
 
         internal List<Type> MappingTypes { get; } = new List<Type>();
+
+        public void ScanAssembly(params Assembly[] assemblies)
+        {
+            if (assemblies == null)
+            {
+                throw new ArgumentNullException(nameof(assemblies));
+            }
+
+            this.MappingAssemblies.AddRange(assemblies);
+        }
 
         public void Add(params IMapping[] mappings)
         {
