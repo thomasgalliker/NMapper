@@ -9,6 +9,8 @@ namespace NMapper.Tests.TestData
 
         public string? Name { get; set; }
 
+        public string? Address { get; set; }
+
         public CountryDto? Country { get; set; }
     }
 }

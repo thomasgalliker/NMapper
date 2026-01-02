@@ -1,5 +1,7 @@
 ﻿using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace NMapper
 {
@@ -18,36 +20,34 @@ namespace NMapper
             var mappingOptions = new MappingOptions();
             options?.Invoke(mappingOptions);
 
-            services.AddScoped<IMapper, Mapper>();
-
-            var registerGenericMappingTypes = mappingOptions.RegisterGenericMappingTypes;
+            services.AddScoped<IMapper>(s =>
+            {
+                var logger = s.GetService<ILogger<Mapper>>() ?? new NullLogger<Mapper>();
+                var registeredMappings = s.GetServices<IMapping>() ?? Array.Empty<IMapping>();
+                var mappings = mappingOptions.Mappings.Mappings.Union(registeredMappings);
+                return new Mapper(logger, mappings);
+            });
 
             foreach (var assembly in mappingOptions.MappingAssemblies)
             {
-                services.AddMappers(assembly, registerGenericMappingTypes);
+                services.AddMappers(assembly);
             }
 
             if (mappingOptions.MappingAssembly != null)
             {
-                services.AddMappers(mappingOptions.MappingAssembly, registerGenericMappingTypes);
+                services.AddMappers(mappingOptions.MappingAssembly);
             }
 
-            if (mappingOptions.Mappings != null)
+            if (mappingOptions.Mappings.MappingTypes.Any())
             {
-                var mappingTypes = mappingOptions.Mappings.Select(m => m.GetType()).ToArray();
-                services.AddMappers(mappingTypes, registerGenericMappingTypes);
-            }
-
-            if (mappingOptions.MappingTypes != null)
-            {
-                var mappingTypes = mappingOptions.MappingTypes;
-                services.AddMappers(mappingTypes, registerGenericMappingTypes);
+                var mappingTypes = mappingOptions.Mappings.MappingTypes;
+                services.AddMappings(mappingTypes);
             }
 
             return services;
         }
 
-        public static IServiceCollection AddMappers(this IServiceCollection services, Assembly assembly, bool registerGenericMappingTypes)
+        public static IServiceCollection AddMappers(this IServiceCollection services, Assembly assembly, bool registerGenericMappingTypes = false)
         {
             var mappingTypes = assembly.GetTypes()
                 .Where(t => !t.IsAbstract && !t.IsInterface)
@@ -55,12 +55,12 @@ namespace NMapper
                     .Any(i => i.IsGenericType &&
                               i.GetGenericTypeDefinition() is Type t && (t == MappingGenericType || t == MappingWithContextGenericType)));
 
-            services.AddMappers(mappingTypes, registerGenericMappingTypes);
+            services.AddMappings(mappingTypes, registerGenericMappingTypes);
 
             return services;
         }
 
-        private static void AddMappers(this IServiceCollection services, IEnumerable<Type> mappingTypes, bool registerGenericMappingTypes)
+        private static void AddMappings(this IServiceCollection services, IEnumerable<Type> mappingTypes, bool registerGenericMappingTypes = false)
         {
             foreach (var mappingType in mappingTypes)
             {

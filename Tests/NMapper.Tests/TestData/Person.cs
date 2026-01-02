@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Net;
 
 namespace NMapper.Tests.TestData
 {
@@ -10,6 +11,8 @@ namespace NMapper.Tests.TestData
         public string? Name { get; set; }
 
         public int CountryId { get; set; }
+
+        public Address? Address { get; set; }
 
         public Country? Country { get; set; }
     }

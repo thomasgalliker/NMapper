@@ -98,6 +98,51 @@ namespace NMapper.Tests
         }
 
         [Fact]
+        public void ShouldRegisterMapping()
+        {
+            // Arrange
+            IMapper mapper = new Mapper();
+
+            // Act
+            mapper.RegisterMapping(new PersonMapping());
+
+            // Assert
+            mapper.Mappings.Should().HaveCount(1);
+        }
+        
+        [Fact]
+        public void ShouldRegisterMappings()
+        {
+            // Arrange
+            IMapper mapper = new Mapper();
+            var mappings = new IMapping[]
+            {
+                new CountryMapping(),
+                new PersonMapping(),
+            };
+
+            // Act
+            mapper.RegisterMappings(mappings);
+
+            // Assert
+            mapper.Mappings.Should().Contain(x => x.SourceType == typeof(Country) && x.TargetType == typeof(CountryDto));
+            mapper.Mappings.Should().Contain(x => x.SourceType == typeof(Person) && x.TargetType == typeof(PersonDto));
+        }
+        
+        [Fact]
+        public void ShouldRegisterMappingWithDelegate()
+        {
+            // Arrange
+            IMapper mapper = new Mapper();
+
+            // Act
+            mapper.RegisterMapping<Person, PersonDto>(p => new PersonDto());
+
+            // Assert
+            mapper.Mappings.Should().HaveCount(1);
+        }
+
+        [Fact]
         public void ShouldMap_PersonToPersonDto_WithNestedCountryNull()
         {
             // Arrange
@@ -144,7 +189,7 @@ namespace NMapper.Tests
                 Name = "Canada",
                 NativeName = "Canada",
             };
-            var personsCount = 10;
+            var personsCount = 3;
             var persons = Enumerable.Range(1, personsCount)
                 .Select(i => new Person
                 {
@@ -152,6 +197,7 @@ namespace NMapper.Tests
                     Name = $"Person {i}",
                     CountryId = country.Id,
                     Country = country,
+                    Address = null,
                 }).ToArray();
 
             // Act
@@ -162,6 +208,86 @@ namespace NMapper.Tests
             personDtos.Should().HaveCount(personsCount);
             personDtos.All(p => p.Name?.StartsWith("Person") == true).Should().BeTrue();
             personDtos.All(p => p.Id > 0).Should().BeTrue();
+        }
+
+        [Fact]
+        public void ShouldMapCollections_ArrayToArray_ThrowsMissingMappingException()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new PersonMapping()
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            var country = new Country
+            {
+                Id = 1,
+                Name = "Canada",
+                NativeName = "Canada",
+            };
+            var personsCount = 3;
+            var persons = Enumerable.Range(1, personsCount)
+                .Select(i => new Person
+                {
+                    Id = i,
+                    Name = $"Person {i}",
+                    CountryId = country.Id,
+                    Country = country,
+                    Address = new Address
+                    {
+                        Street = "123 Main St",
+                        Place = "Toronto",
+                        ZipCode = 12345
+                    }
+                }).ToArray();
+
+            // Act
+            Action action = () => mapper.Map<PersonDto[]>(persons);
+
+            // Assert
+            var aggregateException = action.Should().Throw<AggregateException>().Which;
+            aggregateException.InnerExceptions.Should().HaveCount(2);
+            aggregateException.InnerExceptions.All(ex => ex is MissingMappingException).Should().BeTrue();
+            aggregateException.InnerExceptions[0].Message.Should().Contain("No mapping registered for Address → String");
+            aggregateException.InnerExceptions[1].Message.Should().Contain("No mapping registered for Country → CountryDto");
+        }
+
+        [Fact]
+        public void ShouldMapCollections_ArrayToArray_ThrowsAggregateException()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new PersonNestedExceptionsMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            var country = new Country
+            {
+                Id = 1,
+                Name = "Canada",
+                NativeName = "Canada",
+            };
+            var personsCount = 3;
+            var persons = Enumerable.Range(1, personsCount)
+                .Select(i => new Person
+                {
+                    Id = i,
+                    Name = $"Person {i}",
+                    CountryId = country.Id,
+                    Country = country,
+                }).ToArray();
+
+            // Act
+            Action action = () => mapper.Map<double?[]>(persons);
+
+            // Assert
+            var aggregateException = action.Should().Throw<AggregateException>().Which;
+            aggregateException.InnerExceptions.Should().HaveCount(2);
+            aggregateException.InnerExceptions.All(ex => ex is MissingMappingException).Should().BeTrue();
+            aggregateException.InnerExceptions[0].Message.Should().Contain("No mapping registered for Person → Int32");
+            aggregateException.InnerExceptions[1].Message.Should().Contain("No mapping registered for Person → Single");
         }
 
         [Fact]
@@ -226,7 +352,7 @@ namespace NMapper.Tests
             // Arrange
             var mappings = new IMapping[]
             {
-                new NotImplementedMapping(),
+                new PersonNotImplementedMapping(),
             };
             IMapper mapper = new Mapper(mappings);
 
@@ -243,5 +369,31 @@ namespace NMapper.Tests
             action.Should().Throw<MappingException>().WithInnerException<NotImplementedException>();
         }
 
+        [Fact]
+        public void ShouldMapWithContext_ThrowsMappingException()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new PersonNestedExceptionsMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            var person = new Person
+            {
+                Id = 1,
+                Name = "John Doe",
+            };
+
+            // Act
+            Action action = () => mapper.Map<double?>(person);
+
+            // Assert
+            var aggregateException = action.Should().Throw<AggregateException>().Which;
+            aggregateException.InnerExceptions.Should().HaveCount(2);
+            aggregateException.InnerExceptions.All(ex => ex is MissingMappingException).Should().BeTrue();
+            aggregateException.InnerExceptions[0].Message.Should().Contain("No mapping registered for Person → Int32");
+            aggregateException.InnerExceptions[1].Message.Should().Contain("No mapping registered for Person → Single");
+        }
     }
 }

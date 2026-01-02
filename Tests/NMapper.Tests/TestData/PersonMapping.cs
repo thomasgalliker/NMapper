@@ -8,6 +8,7 @@
             {
                 Id = person.Id,
                 Name = person.Name,
+                Address = context.Map<string?>(person.Address),
                 Country = context.Map<CountryDto?>(person.Country),
             };
         }

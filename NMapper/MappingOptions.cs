@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using NMapper.Extensions;
 
 namespace NMapper
 {
@@ -7,18 +8,58 @@ namespace NMapper
         public MappingOptions()
         {
             this.MappingAssemblies = Array.Empty<Assembly>();
-            this.Mappings = Array.Empty<IMapping>();
-            this.MappingTypes = Array.Empty<Type>();
+            this.Mappings = new MappingOptionsMappingCollection();
         }
 
         public Assembly[] MappingAssemblies { get; set; }
 
         public Assembly? MappingAssembly { get; set; }
 
-        public IMapping[] Mappings { get; set; }
+        public MappingOptionsMappingCollection Mappings { get; }
+    }
 
-        public Type[] MappingTypes { get; set; }
+    public class MappingOptionsMappingCollection
+    {
+        internal List<IMapping> Mappings { get; } = new List<IMapping>();
 
-        public bool RegisterGenericMappingTypes { get; set; }
+        internal List<Type> MappingTypes { get; } = new List<Type>();
+
+        public void Add(params IMapping[] mappings)
+        {
+            if (mappings == null)
+            {
+                throw new ArgumentNullException(nameof(mappings));
+            }
+
+            this.Mappings.AddRange(mappings);
+        }
+
+        public void Add<TSource, TTarget>(Func<TSource, TTarget> mapping)
+        {
+            if (mapping == null)
+            {
+                throw new ArgumentNullException(nameof(mapping));
+            }
+
+            this.Mappings.Add(new DelegateMapping<TSource, TTarget>(mapping));
+        }
+
+        public void Add(params Type[] mappingTypes)
+        {
+            if (mappingTypes == null)
+            {
+                throw new ArgumentNullException(nameof(mappingTypes));
+            }
+
+            foreach (var mappingType in mappingTypes)
+            {
+                if (!typeof(IMapping).IsAssignableFrom(mappingType))
+                {
+                    throw new ArgumentException($"Type '{mappingType.GetFormattedName()}' does not implement '{typeof(IMapping).GetFormattedName()}'.", nameof(mappingType));
+                }
+
+                this.MappingTypes.Add(mappingType);
+            }
+        }
     }
 }
