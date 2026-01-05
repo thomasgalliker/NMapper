@@ -44,7 +44,7 @@ namespace Benchmark
         {
             for (var i = 0; i < Iterations; i++)
             {
-                TinyMapper.Map<TargetWithCollections>(this.source);
+                var result = TinyMapper.Map<TargetWithCollections>(this.source);
             }
         }
 
@@ -53,7 +53,7 @@ namespace Benchmark
         {
             for (var i = 0; i < Iterations; i++)
             {
-                AMapper.Map<TargetWithCollections>(this.source);
+                var result = AMapper.Map<TargetWithCollections>(this.source);
             }
         }
 
@@ -62,7 +62,7 @@ namespace Benchmark
         {
             for (var i = 0; i < Iterations; i++)
             {
-                this.mapper.Map<TargetWithCollections>(this.source);
+                var result = this.mapper.Map<TargetWithCollections>(this.source);
             }
         }
 
@@ -71,7 +71,7 @@ namespace Benchmark
         {
             for (var i = 0; i < Iterations; i++)
             {
-                MapStatic(this.source, new TargetWithCollections());
+                var result = MapStatic(this.source, new TargetWithCollections());
             }
         }
 

@@ -10,7 +10,7 @@ namespace NMapper
 
         void RegisterMappings(IEnumerable<IMapping> mappings);
 
-        IEnumerable<(Type SourceType, Type TargetType)> Mappings { get; }
+        IEnumerable<TypePair> Mappings { get; }
 
         [return: NotNullIfNotNull(nameof(source))]
         TTarget? Map<TTarget>(object? source);

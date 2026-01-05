@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-namespace NMapper
+namespace NMapper.Internals
 {
     internal sealed class MappingContext : IMappingContext
     {
@@ -43,7 +43,7 @@ namespace NMapper
             }
             else
             {
-                return result.Result;
+                return (TTarget?)result.Result;
             }
         }
 

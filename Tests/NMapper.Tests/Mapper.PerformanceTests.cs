@@ -18,7 +18,7 @@ namespace NMapper.Tests
             };
             IMapper mapper = new Mapper(mappings);
 
-            var source = SourceWithCollectionsHelper.CreateSource(100);
+            var source = SourceWithCollectionsHelper.CreateSource(1000000);
 
             // Act
             var target = mapper.Map<TargetWithCollections>(source);

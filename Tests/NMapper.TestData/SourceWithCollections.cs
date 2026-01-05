@@ -30,7 +30,7 @@ namespace NMapper.TestData
                 Int = 5,
                 Float = 4.9f,
                 Decimal = 4.0m,
-                DateTime = DateTime.Now,
+                DateTime = DateTime.MinValue,
                 Char = 'a',
                 Bool = true,
                 Byte = 0
