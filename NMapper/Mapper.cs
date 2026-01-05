@@ -163,9 +163,14 @@ namespace NMapper
 
             var targetType = typeof(TTarget);
 
+            if (this.TryExecuteExplicitMapping(source, sourceType, targetType, context, out var explicitResult, out var explicitException))
+            {
+                return ((TTarget?)explicitResult, explicitException);
+            }
+
             if (TryGetEnumerableElementType(sourceType, out var sourceElementType))
             {
-                // Array T[]
+                // Array
                 if (targetType.IsArray)
                 {
                     var targetElementType = targetType.GetElementType()!;
@@ -177,19 +182,30 @@ namespace NMapper
                 {
                     if (TryGetEnumerableElementType(targetType, out var targetElementType))
                     {
-                        var list = this.MapEnumerable(source, sourceElementType, targetElementType, context);
-                        return ((TTarget?)list, null);
+                        var enumerable = this.MapEnumerable(source, sourceElementType, targetElementType, context);
+                        return ((TTarget?)enumerable, null);
                     }
                 }
             }
 
-            var result = this.ExecuteMapping(source, sourceType, targetType, context);
-            if (result.Exception == null)
+            var ex = new MissingMappingException(sourceType, targetType);
+            context.AddException(ex);
+            return (default, ex);
+        }
+
+        private bool TryExecuteExplicitMapping(object? source, Type sourceType, Type targetType, MappingContext context, out object? result, out Exception? exception)
+        {
+            if (this.map.TryGetValue((sourceType, targetType), out var map))
             {
-                return ((TTarget?)result.Result, null);
+                var r = map((source, context));
+                result = r.Result;
+                exception = r.Exception;
+                return true;
             }
 
-            return (default, result.Exception);
+            result = null;
+            exception = null;
+            return false;
         }
 
         private (object? Result, Exception? Exception) ExecuteMapping(object? source, Type sourceType, Type targetType, MappingContext context)
@@ -221,9 +237,8 @@ namespace NMapper
         {
             var list = new List<object?>();
 
-            if (source != null)
+            if (source is IEnumerable enumerable)
             {
-                var enumerable = (IEnumerable)source;
                 foreach (var item in enumerable)
                 {
                     (var mapped, var ex) = this.ExecuteMapping(item, sourceElementType, targetElementType, context);
@@ -248,9 +263,8 @@ namespace NMapper
             var listType = typeof(List<>).MakeGenericType(targetElementType);
             var list = (IList)Activator.CreateInstance(listType)!;
 
-            if (source != null)
+            if (source is IEnumerable enumerable)
             {
-                var enumerable = (IEnumerable)source;
                 foreach (var item in enumerable)
                 {
                     (var mapped, var ex) = this.ExecuteMapping(item, sourceElementType, targetElementType, context);
