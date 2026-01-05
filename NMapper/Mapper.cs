@@ -126,7 +126,7 @@ namespace NMapper
             return expr.Compile();
         }
 
-        private MappingResult Map(TypePair typepair, IMapping mapping, Func<object?, MappingContext, object?> map, object? source, MappingContext context)
+        private MappingResult Map(TypePair typePair, IMapping mapping, Func<object?, MappingContext, object?> map, object? source, MappingContext context)
         {
             try
             {
@@ -136,13 +136,13 @@ namespace NMapper
             catch (TargetInvocationException ex)
             {
                 var innerException = ex.InnerException != null ? ex.InnerException : ex;
-                var mappingException = new MappingException(typepair.SourceType, typepair.TargetType, mapping.GetType(), innerException);
+                var mappingException = new MappingException(typePair.SourceType, typePair.TargetType, mapping.GetType(), innerException);
                 context.AddException(mappingException);
                 return new MappingResult(default, mappingException, context);
             }
             catch (Exception ex)
             {
-                var mappingException = new MappingException(typepair.SourceType, typepair.TargetType, mapping.GetType(), ex);
+                var mappingException = new MappingException(typePair.SourceType, typePair.TargetType, mapping.GetType(), ex);
                 context.AddException(mappingException);
                 return new MappingResult(default, mappingException, context);
             }
