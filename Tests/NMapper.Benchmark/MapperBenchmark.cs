@@ -9,7 +9,7 @@ namespace Benchmark
     public class MapperBenchmark
     {
         private readonly SourceWithCollections source = SourceWithCollectionsHelper.CreateSource(100);
-        private IMapper mapper;
+        private IMapper mapper = null!;
         private const int Iterations = 1;
 
 
@@ -67,15 +67,15 @@ namespace Benchmark
         }
 
         [Benchmark]
-        public void CollectionMapping_Handwritten()
+        public void CollectionMapping_StaticMapping()
         {
             for (var i = 0; i < Iterations; i++)
             {
-                HandwrittenMap(this.source, new TargetWithCollections());
+                MapStatic(this.source, new TargetWithCollections());
             }
         }
 
-        private static TargetWithCollections HandwrittenMap(SourceWithCollections source, TargetWithCollections target)
+        private static TargetWithCollections MapStatic(SourceWithCollections source, TargetWithCollections target)
         {
             target.StringList.AddRange(source.StringList);
             source.ItemList.ForEach(x => target.ItemList.Add(HandwrittenMap(x, new Item())));
