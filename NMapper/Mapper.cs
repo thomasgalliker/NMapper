@@ -98,31 +98,31 @@ namespace NMapper
 
         private Func<object?, MappingContext, object?> CompileMapping(IMapping mapping, TypePair typePair, MethodInfo method)
         {
-            var sourceObj = Expression.Parameter(typeof(object), "source");
-            var context = Expression.Parameter(typeof(MappingContext), "context");
+            var sourceParam = Expression.Parameter(typeof(object), "source");
+            var contextParam = Expression.Parameter(typeof(MappingContext), "context");
 
-            var castSource = Expression.Convert(sourceObj, typePair.SourceType);
+            var castSource = Expression.Convert(sourceParam, typePair.SourceType);
 
             var call = Expression.Call(Expression.Constant(mapping), method, castSource);
 
             var castResult = Expression.Convert(call, typeof(object));
 
-            var expr = Expression.Lambda<Func<object?, MappingContext, object?>>(castResult, sourceObj, context);
+            var expr = Expression.Lambda<Func<object?, MappingContext, object?>>(castResult, sourceParam, contextParam);
             return expr.Compile();
         }
 
         private Func<object?, MappingContext, object?> CompileMappingWithContext(IMapping mapping, TypePair typePair, MethodInfo method)
         {
-            var sourceObj = Expression.Parameter(typeof(object), "source");
-            var context = Expression.Parameter(typeof(MappingContext), "context");
+            var sourceParam = Expression.Parameter(typeof(object), "source");
+            var contextParam = Expression.Parameter(typeof(MappingContext), "context");
 
-            var castSource = Expression.Convert(sourceObj, typePair.SourceType);
+            var castSource = Expression.Convert(sourceParam, typePair.SourceType);
 
-            var call = Expression.Call(Expression.Constant(mapping), method, castSource, context);
+            var call = Expression.Call(Expression.Constant(mapping), method, castSource, contextParam);
 
             var castResult = Expression.Convert(call, typeof(object));
 
-            var expr = Expression.Lambda<Func<object?, MappingContext, object?>>(castResult, sourceObj, context);
+            var expr = Expression.Lambda<Func<object?, MappingContext, object?>>(castResult, sourceParam, contextParam);
             return expr.Compile();
         }
 
