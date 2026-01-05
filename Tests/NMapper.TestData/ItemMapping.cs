@@ -1,10 +1,10 @@
 ﻿namespace NMapper.TestData
 {
-    public class ItemMapping : IMapping<Item, Item>
+    public class ItemMapping : IMapping<Item, ItemDto>
     {
-        public Item Map(Item source)
+        public ItemDto Map(Item source)
         {
-            return new Item
+            return new ItemDto
             {
                 Id = source.Id,
                 Bool = source.Bool,

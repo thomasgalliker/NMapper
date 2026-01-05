@@ -1,7 +1,5 @@
 ﻿using System.Collections;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq.Expressions;
-using System.Reflection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NMapper.Internals;
@@ -10,7 +8,7 @@ namespace NMapper
 {
     public sealed class Mapper : IMapper
     {
-        private readonly Dictionary<TypePair, Func<object?, MappingContext, MappingResult>> map = new();
+        private readonly Dictionary<TypePair, IFastInvoker> map = new();
 
         private readonly ILogger<Mapper> logger;
 
@@ -77,74 +75,37 @@ namespace NMapper
                     throw new DuplicateMappingException(typePair.SourceType, typePair.TargetType);
                 }
 
-                var useContext = mappingInterface.GetGenericTypeDefinition() == typeof(IMappingWithContext<,>);
+                var method = mappingInterface.GetMethod("Map")!;
 
-                Func<object?, MappingContext, object?> compiled;
+                var useContext = mappingInterface.GetGenericTypeDefinition() == typeof(IMappingWithContext<,>);
 
                 if (!useContext)
                 {
-                    var methodInfo = mappingInterface.GetMethod(nameof(IMapping<object, object>.Map))!;
-                    compiled = this.CompileMapping(mapping, typePair, methodInfo);
+                    var delType = typeof(Func<,>).MakeGenericType(args[0], args[1]);
+
+                    var del = Delegate.CreateDelegate(delType, mapping, method);
+
+                    var invokerType = typeof(FastInvoker<,>).MakeGenericType(args[0], args[1]);
+
+                    var invoker = (IFastInvoker)Activator.CreateInstance(invokerType, del, typePair, mapping.GetType())!;
+
+                    this.map[typePair] = invoker;
                 }
                 else
                 {
-                    var methodInfo = mappingInterface.GetMethod(nameof(IMappingWithContext<object, object>.Map))!;
-                    compiled = this.CompileMappingWithContext(mapping, typePair, methodInfo);
+                    var delType = typeof(Func<,,>).MakeGenericType(
+                          args[0],
+                          typeof(MappingContext),
+                          args[1]);
+
+                    var del = Delegate.CreateDelegate(delType, mapping, method);
+
+                    var invokerType = typeof(FastContextInvoker<,>).MakeGenericType(args[0], args[1]);
+
+                    var invoker = (IFastInvoker)Activator.CreateInstance(invokerType, del, typePair, mapping.GetType())!;
+
+                    this.map[typePair] = invoker;
                 }
-
-                this.map[typePair] = (source, context) => this.Map(typePair, mapping, compiled, source, context);
-            }
-        }
-
-        private Func<object?, MappingContext, object?> CompileMapping(IMapping mapping, TypePair typePair, MethodInfo method)
-        {
-            var sourceParam = Expression.Parameter(typeof(object), "source");
-            var contextParam = Expression.Parameter(typeof(MappingContext), "context");
-
-            var castSource = Expression.Convert(sourceParam, typePair.SourceType);
-
-            var call = Expression.Call(Expression.Constant(mapping), method, castSource);
-
-            var castResult = Expression.Convert(call, typeof(object));
-
-            var expr = Expression.Lambda<Func<object?, MappingContext, object?>>(castResult, sourceParam, contextParam);
-            return expr.Compile();
-        }
-
-        private Func<object?, MappingContext, object?> CompileMappingWithContext(IMapping mapping, TypePair typePair, MethodInfo method)
-        {
-            var sourceParam = Expression.Parameter(typeof(object), "source");
-            var contextParam = Expression.Parameter(typeof(MappingContext), "context");
-
-            var castSource = Expression.Convert(sourceParam, typePair.SourceType);
-
-            var call = Expression.Call(Expression.Constant(mapping), method, castSource, contextParam);
-
-            var castResult = Expression.Convert(call, typeof(object));
-
-            var expr = Expression.Lambda<Func<object?, MappingContext, object?>>(castResult, sourceParam, contextParam);
-            return expr.Compile();
-        }
-
-        private MappingResult Map(TypePair typePair, IMapping mapping, Func<object?, MappingContext, object?> map, object? source, MappingContext context)
-        {
-            try
-            {
-                var result = map(source, context);
-                return new MappingResult(result, null, context);
-            }
-            catch (TargetInvocationException ex)
-            {
-                var innerException = ex.InnerException != null ? ex.InnerException : ex;
-                var mappingException = new MappingException(typePair.SourceType, typePair.TargetType, mapping.GetType(), innerException);
-                context.AddException(mappingException);
-                return new MappingResult(default, mappingException, context);
-            }
-            catch (Exception ex)
-            {
-                var mappingException = new MappingException(typePair.SourceType, typePair.TargetType, mapping.GetType(), ex);
-                context.AddException(mappingException);
-                return new MappingResult(default, mappingException, context);
             }
         }
 
@@ -195,16 +156,16 @@ namespace NMapper
                 if (typePair.TargetType.IsArray)
                 {
                     var targetElementType = typePair.TargetType.GetElementType()!;
-                    var array = this.MapArray(source, new TypePair(sourceElementType, targetElementType), context);
-                    return new((TTarget?)array, null, context);
+                    var mappingResult = this.MapArray<TTarget>(source, new TypePair(sourceElementType, targetElementType), context);
+                    return mappingResult;
                 }
 
                 // IEnumerable<T>
                 {
                     if (TryGetEnumerableElementType(typePair.TargetType, out var targetElementType))
                     {
-                        var enumerable = this.MapEnumerable(source, new TypePair(sourceElementType, targetElementType), context);
-                        return new((TTarget?)enumerable, null, context);
+                        var mappingResult = this.MapEnumerable<TTarget>(source, new TypePair(sourceElementType, targetElementType), context);
+                        return mappingResult;
                     }
                 }
             }
@@ -218,7 +179,7 @@ namespace NMapper
         {
             if (this.map.TryGetValue(typePair, out var map))
             {
-                var r = map(source, context);
+                var r = map.Invoke(source, context);
                 result = r.Result;
                 exception = r.Exception;
                 return true;
@@ -229,95 +190,88 @@ namespace NMapper
             return false;
         }
 
-        private MappingResult ExecuteMapping(object? source, TypePair typePair, MappingContext context)
+        private MappingResult MapArray<TTarget>(object? source, TypePair elementTypePair, MappingContext context)
         {
-            if (typePair == null)
+            if (!this.map.TryGetValue(elementTypePair, out var elementMap))
             {
-                return new MappingResult(null, null, context);
-            }
-
-            if (!this.map.TryGetValue(typePair, out var map))
-            {
-                var ex = new MissingMappingException(typePair.SourceType, typePair.TargetType);
+                var ex = new MissingMappingException(elementTypePair.SourceType, elementTypePair.TargetType);
                 context.AddException(ex);
-                return new MappingResult(null, ex, context);
-            }
 
-            try
-            {
-                var result = map(source, context);
-                return new MappingResult(result.Result, result.Exception, context);
+                return new MappingResult(default(TTarget), ex, context);
             }
-            catch (Exception ex)
-            {
-                return new MappingResult(null, ex, context);
-            }
-        }
-
-        private object MapArray(object? source, TypePair elementTypePair, MappingContext context)
-        {
-            Array? array;
 
             if (source is ICollection collection)
             {
-                array = Array.CreateInstance(elementTypePair.TargetType, collection.Count);
-                int i = 0;
+                var array = Array.CreateInstance(elementTypePair.TargetType, collection.Count);
 
+                int i = 0;
                 foreach (var item in collection)
                 {
-                    var result = this.ExecuteMapping(item, elementTypePair, context);
-                    if (result.Exception == null)
+                    var r = elementMap.Invoke(item, context);
+                    if (r.Exception == null)
                     {
-                        array.SetValue(result.Result, i++);
+                        array.SetValue(r.Result, i++);
                     }
                 }
+
+                return new MappingResult(array, null, context);
             }
             else if (source is IEnumerable enumerable)
             {
-                var list = new List<object?>();
+                // fallback for IEnumerable
+                var temp = new List<object?>();
 
                 foreach (var item in enumerable)
                 {
-                    var result = this.ExecuteMapping(item, elementTypePair, context);
-                    if (result.Exception == null)
+                    var r = elementMap.Invoke(item, context);
+                    if (r.Exception == null)
                     {
-                        list.Add(result.Result);
+                        temp.Add(r.Result);
                     }
                 }
 
-                array = Array.CreateInstance(elementTypePair.TargetType, list.Count);
-                for (var i = 0; i < list.Count; i++)
+                var array = Array.CreateInstance(elementTypePair.TargetType, temp.Count);
+                for (var i = 0; i < temp.Count; i++)
                 {
-                    array.SetValue(list[i], i);
+                    array.SetValue(temp[i], i);
                 }
-            }
-            else
-            {
-                throw new NotSupportedException();
+
+                return new MappingResult(array, null, context);
             }
 
-            return array;
+            throw new NotSupportedException();
         }
 
-        private object MapEnumerable(object? source, TypePair elementTypePair, MappingContext context)
+
+        private MappingResult MapEnumerable<TTarget>(object? source, TypePair elementTypePair, MappingContext context)
         {
             var listType = typeof(List<>).MakeGenericType(elementTypePair.TargetType);
+
+            if (!this.map.TryGetValue(elementTypePair, out var elementMap))
+            {
+                var ex = new MissingMappingException(elementTypePair.SourceType, elementTypePair.TargetType);
+                context.AddException(ex);
+
+                return new MappingResult(default(TTarget), ex, context);
+            }
+
             var list = (IList)Activator.CreateInstance(listType)!;
 
             if (source is IEnumerable enumerable)
             {
                 foreach (var item in enumerable)
                 {
-                    var result = this.ExecuteMapping(item, elementTypePair, context);
-                    if (result.Exception == null)
+                    var mappingResult = elementMap.Invoke(item, context);
+                    if (mappingResult.Exception == null)
                     {
-                        list.Add(result.Result);
+                        list.Add(mappingResult.Result);
                     }
                 }
             }
 
-            return list;
+            return new MappingResult(list, null, context);
         }
+
 
 
         private static bool TryGetEnumerableElementType(Type type, out Type elementType)

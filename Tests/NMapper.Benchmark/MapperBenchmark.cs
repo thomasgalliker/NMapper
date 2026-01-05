@@ -9,6 +9,7 @@ namespace Benchmark
     public class MapperBenchmark
     {
         private readonly SourceWithCollections source = SourceWithCollectionsHelper.CreateSource(100);
+        //private readonly Person[] persons = Enumerable.Range(0, 100).Select(i => new Person { Id = i }).ToArray();
         private IMapper mapper = null!;
         private const int Iterations = 1;
 
@@ -23,6 +24,10 @@ namespace Benchmark
         private void InitTinyMapper()
         {
             TinyMapper.Bind<SourceWithCollections, TargetWithCollections>();
+            TinyMapper.Bind<Item, ItemDto>();
+            //TinyMapper.Bind<Person, PersonDto>();
+            //TinyMapper.Bind<Person[], PersonDto[]>();
+            //TinyMapper.Bind<Country, CountryDto>();
         }
 
         private void InitAutoMapper()
@@ -30,13 +35,22 @@ namespace Benchmark
             AMapper.Initialize(x =>
             {
                 x.CreateMap<SourceWithCollections, TargetWithCollections>();
-                x.CreateMap<Item, Item>();
+                x.CreateMap<Item, ItemDto>();
+                //x.CreateMap<Person, PersonDto>();
+                //x.CreateMap<Country, CountryDto>();
             });
         }
 
         private void InitNMapper()
         {
-            this.mapper = new Mapper(new SourceToTargetCollectionsMapping(), new ItemMapping());
+            this.mapper = new Mapper(new IMapping[]
+            {
+             new SourceToTargetCollectionsMapping(),
+                new ItemMapping(),
+                new ListItemMapping(),
+                //new PersonMapping(),
+                //new CountryMapping()
+            });
         }
 
         [Benchmark]
@@ -45,6 +59,7 @@ namespace Benchmark
             for (var i = 0; i < Iterations; i++)
             {
                 var result = TinyMapper.Map<TargetWithCollections>(this.source);
+                //var personDtos = TinyMapper.Map<PersonDto[]>(this.persons);
             }
         }
 
@@ -54,6 +69,7 @@ namespace Benchmark
             for (var i = 0; i < Iterations; i++)
             {
                 var result = AMapper.Map<TargetWithCollections>(this.source);
+                //var personDtos = AMapper.Map<PersonDto[]>(this.persons);
             }
         }
 
@@ -63,6 +79,7 @@ namespace Benchmark
             for (var i = 0; i < Iterations; i++)
             {
                 var result = this.mapper.Map<TargetWithCollections>(this.source);
+                //var personDtos = this.mapper.Map<PersonDto[]>(this.persons);
             }
         }
 
@@ -71,19 +88,39 @@ namespace Benchmark
         {
             for (var i = 0; i < Iterations; i++)
             {
-                var result = MapStatic(this.source, new TargetWithCollections());
+                var result = MapStatic(this.source);
+                //var personDtos = MapStatic(this.persons);
             }
         }
 
-        private static TargetWithCollections MapStatic(SourceWithCollections source, TargetWithCollections target)
+        private static PersonDto[] MapStatic(Person[] persons)
         {
+            var personDtos = new List<PersonDto>();
+            foreach (var person in persons)
+            {
+                personDtos.Add(new PersonDto
+                {
+                    Id = person.Id,
+                    Name = person.Name,
+                    Country = new CountryDto(),
+                    Address = person.Address?.Place,
+                });
+            }
+
+            return personDtos.ToArray();
+        }
+
+        private static TargetWithCollections MapStatic(SourceWithCollections source)
+        {
+            var target = new TargetWithCollections();
             target.StringList.AddRange(source.StringList);
-            source.ItemList.ForEach(x => target.ItemList.Add(HandwrittenMap(x, new Item())));
+            source.ItemList.ForEach(x => target.ItemList.Add(HandwrittenMap(x)));
             return target;
         }
 
-        private static Item HandwrittenMap(Item source, Item target)
+        private static ItemDto HandwrittenMap(Item source)
         {
+            var target = new ItemDto();
             target.Id = source.Id;
             target.Bool = source.Bool;
             target.Byte = source.Byte;

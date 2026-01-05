@@ -9,7 +9,7 @@ namespace NMapper.TestData
             return new TargetWithCollections
             {
                 StringList = source.StringList,
-                ItemList = context.Map<List<Item>>(source.ItemList)
+                ItemList = context.Map<List<ItemDto>>(source.ItemList)
             };
         }
     }
