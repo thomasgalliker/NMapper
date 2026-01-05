@@ -1,8 +1,8 @@
 ﻿using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using NMapper.TestData;
 using NMapper.Tests.Logging;
-using NMapper.Tests.TestData;
 using Xunit;
 using Xunit.Abstractions;
 

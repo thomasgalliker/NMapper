@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 
-namespace NMapper.Tests.TestData
+namespace NMapper.TestData
 {
     [DebuggerDisplay("{this.Name}", Type = "Country")]
     public class Country

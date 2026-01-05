@@ -1,5 +1,5 @@
 ﻿using FluentAssertions;
-using NMapper.Tests.TestData;
+using NMapper.TestData;
 using Xunit;
 
 namespace NMapper.Tests
@@ -109,7 +109,7 @@ namespace NMapper.Tests
             // Assert
             mapper.Mappings.Should().HaveCount(1);
         }
-        
+
         [Fact]
         public void ShouldRegisterMappings()
         {
@@ -128,7 +128,7 @@ namespace NMapper.Tests
             mapper.Mappings.Should().Contain(x => x.SourceType == typeof(Country) && x.TargetType == typeof(CountryDto));
             mapper.Mappings.Should().Contain(x => x.SourceType == typeof(Person) && x.TargetType == typeof(PersonDto));
         }
-        
+
         [Fact]
         public void ShouldRegisterMappingWithDelegate()
         {
@@ -394,6 +394,27 @@ namespace NMapper.Tests
             aggregateException.InnerExceptions.All(ex => ex is MissingMappingException).Should().BeTrue();
             aggregateException.InnerExceptions[0].Message.Should().Contain("No mapping registered for Person to Int32");
             aggregateException.InnerExceptions[1].Message.Should().Contain("No mapping registered for Person to Single");
+        }
+
+
+        [Fact]
+        public void ShouldMap_SourceToTargetCollection()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new SourceToTargetCollectionsMapping(),
+                new ItemMapping()
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            var source = SourceWithCollectionsHelper.CreateSource(100);
+
+            // Act
+            var target = mapper.Map<TargetWithCollections>(source);
+
+            // Assert
+            target.Should().NotBeNull();
         }
     }
 }

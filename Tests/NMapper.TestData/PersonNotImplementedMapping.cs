@@ -1,4 +1,6 @@
-﻿namespace NMapper.Tests.TestData
+﻿using System;
+
+namespace NMapper.TestData
 {
     public class PersonNotImplementedMapping : IMapping<Person, string>
     {

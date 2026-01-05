@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\NMapper\NMapper.csproj" />
+    <ProjectReference Include="..\NMapper.TestData\NMapper.TestData.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,4 @@
-﻿namespace NMapper.Tests.TestData
+﻿namespace NMapper.TestData
 {
     public class CountryMapping : IMapping<Country, CountryDto>
     {

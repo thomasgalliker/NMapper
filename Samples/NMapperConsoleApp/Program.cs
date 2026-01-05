@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NMapper;
+using NMapper.TestData;
 
 namespace NMapperConsoleApp
 {
@@ -18,7 +19,7 @@ namespace NMapperConsoleApp
 
             serviceCollection.AddMapping(o =>
             {
-                o.Mappings.ScanAssembly(typeof(Program).Assembly);
+                o.Mappings.ScanAssembly(typeof(Person).Assembly);
                 o.ServiceLifetime = ServiceLifetime.Transient;
             });
 

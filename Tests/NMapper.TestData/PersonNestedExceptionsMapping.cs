@@ -1,4 +1,4 @@
-﻿namespace NMapper.Tests.TestData
+﻿namespace NMapper.TestData
 {
     public class PersonNestedExceptionsMapping : IMappingWithContext<Person, double?>
     {
