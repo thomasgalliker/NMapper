@@ -17,9 +17,7 @@
                 Long = source.Long,
                 Short = source.Short,
                 FirstName = source.FirstName,
-                LastName = source.LastName,
-                Nickname = source.Nickname,
-                Email = source.Email,
+                LastName = source.LastName
             };
         }
     }

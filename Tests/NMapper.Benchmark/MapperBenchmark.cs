@@ -96,8 +96,6 @@ namespace Benchmark
             target.Short = source.Short;
             target.FirstName = source.FirstName;
             target.LastName = source.LastName;
-            target.Nickname = source.Nickname;
-            target.Email = source.Email;
             return target;
         }
     }
