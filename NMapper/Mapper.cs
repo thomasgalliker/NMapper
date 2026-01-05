@@ -223,7 +223,8 @@ namespace NMapper
 
             if (source != null)
             {
-                foreach (var item in (IEnumerable)source)
+                var enumerable = (IEnumerable)source;
+                foreach (var item in enumerable)
                 {
                     (var mapped, var ex) = this.ExecuteMapping(item, sourceElementType, targetElementType, context);
                     if (ex == null)
@@ -249,7 +250,8 @@ namespace NMapper
 
             if (source != null)
             {
-                foreach (var item in (IEnumerable)source)
+                var enumerable = (IEnumerable)source;
+                foreach (var item in enumerable)
                 {
                     (var mapped, var ex) = this.ExecuteMapping(item, sourceElementType, targetElementType, context);
                     if (ex == null)
