@@ -24,7 +24,7 @@ namespace NMapper.Tests.Extensions
             var services = new ServiceCollection();
             services.AddMapping(o =>
             {
-                o.Mappings.ScanAssembly(this.GetType().Assembly);
+                o.Mappings.ScanAssembly(typeof(Person).Assembly);
             });
             var serviceProvider = services.BuildServiceProvider();
 
@@ -60,7 +60,7 @@ namespace NMapper.Tests.Extensions
             });
             services.AddMapping(o =>
             {
-                o.Mappings.ScanAssembly(this.GetType().Assembly);
+                o.Mappings.ScanAssembly(typeof(Person).Assembly);
             });
             var serviceProvider = services.BuildServiceProvider();
 
@@ -105,8 +105,8 @@ namespace NMapper.Tests.Extensions
             {
                 options.Mappings.ScanAssembly(new[]
                 {
-                    this.GetType().Assembly,
-                    this.GetType().Assembly,
+                    typeof(Person).Assembly,
+                    typeof(Person).Assembly,
                 });
             });
             var serviceProvider = services.BuildServiceProvider();
