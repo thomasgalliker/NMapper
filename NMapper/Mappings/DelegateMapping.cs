@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+
 namespace NMapper
 {
     [DebuggerDisplay("DelegateMapping: {NMapper.Extensions.TypeExtensions.GetFormattedName(typeof(TSource))} to {NMapper.Extensions.TypeExtensions.GetFormattedName(typeof(TTarget))}")]
