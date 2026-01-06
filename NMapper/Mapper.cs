@@ -318,25 +318,5 @@ namespace NMapper
             elementType = null!;
             return false;
         }
-
-        private sealed class MappingExceptionCollector
-        {
-            private readonly List<Exception> exceptions = new();
-
-            public void Add(Exception ex) => this.exceptions.Add(ex);
-
-            public void ThrowIfAny()
-            {
-                if (this.exceptions.Count == 1)
-                {
-                    throw this.exceptions[0];
-                }
-
-                if (this.exceptions.Count > 1)
-                {
-                    throw new AggregateException(this.exceptions);
-                }
-            }
-        }
     }
 }
