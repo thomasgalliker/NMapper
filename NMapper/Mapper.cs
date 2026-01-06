@@ -53,6 +53,11 @@ namespace NMapper
             //this.RegisterMappingInternal(new DoubleToDecimalMapping(), throwDuplicates: false);
         }
 
+        public void RegisterMapping<TSource, TTarget>(Func<TSource, TTarget> mapping)
+        {
+            this.RegisterMappingInternal(new DelegateMapping<TSource, TTarget>(mapping));
+        }
+
         public void RegisterMapping(IMapping mapping)
         {
             this.RegisterMappingInternal(mapping);
@@ -312,11 +317,6 @@ namespace NMapper
 
             elementType = null!;
             return false;
-        }
-
-        public void RegisterMapping<TSource, TTarget>(Func<TSource, TTarget> mapping)
-        {
-            this.RegisterMappingInternal(new DelegateMapping<TSource, TTarget>(mapping));
         }
 
         private sealed class MappingExceptionCollector
