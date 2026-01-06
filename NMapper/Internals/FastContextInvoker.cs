@@ -1,5 +1,18 @@
 ﻿namespace NMapper.Internals
 {
+    internal abstract class FastContextInvoker
+    {
+        public static IFastInvoker Create(TypePair typePair, IMapping mapping, Type mappingInterface)
+        {
+            var method = mappingInterface.GetMethod("Map")!;
+            var delType = typeof(Func<,,>).MakeGenericType(typePair.SourceType, typeof(MappingContext), typePair.TargetType);
+            var del = Delegate.CreateDelegate(delType, mapping, method);
+            var invokerType = typeof(FastContextInvoker<,>).MakeGenericType(typePair.SourceType, typePair.TargetType);
+            var fastInvoker = (IFastInvoker)Activator.CreateInstance(invokerType, del, typePair, mapping.GetType())!;
+            return fastInvoker;
+        }
+    }
+
     internal sealed class FastContextInvoker<TSource, TTarget> : IFastInvoker
     {
         private readonly Func<TSource?, MappingContext, TTarget?> map;

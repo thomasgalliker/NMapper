@@ -80,36 +80,17 @@ namespace NMapper
                     throw new DuplicateMappingException(typePair.SourceType, typePair.TargetType);
                 }
 
-                var method = mappingInterface.GetMethod("Map")!;
-
                 var useContext = mappingInterface.GetGenericTypeDefinition() == typeof(IMappingWithContext<,>);
 
                 if (!useContext)
                 {
-                    var delType = typeof(Func<,>).MakeGenericType(args[0], args[1]);
-
-                    var del = Delegate.CreateDelegate(delType, mapping, method);
-
-                    var invokerType = typeof(FastInvoker<,>).MakeGenericType(args[0], args[1]);
-
-                    var invoker = (IFastInvoker)Activator.CreateInstance(invokerType, del, typePair, mapping.GetType())!;
-
-                    this.map[typePair] = invoker;
+                    var fastInvoker = FastInvoker.Create(typePair, mapping, mappingInterface);
+                    this.map[typePair] = fastInvoker;
                 }
                 else
                 {
-                    var delType = typeof(Func<,,>).MakeGenericType(
-                          args[0],
-                          typeof(MappingContext),
-                          args[1]);
-
-                    var del = Delegate.CreateDelegate(delType, mapping, method);
-
-                    var invokerType = typeof(FastContextInvoker<,>).MakeGenericType(args[0], args[1]);
-
-                    var invoker = (IFastInvoker)Activator.CreateInstance(invokerType, del, typePair, mapping.GetType())!;
-
-                    this.map[typePair] = invoker;
+                    var fastInvoker = FastContextInvoker.Create(typePair, mapping, mappingInterface);
+                    this.map[typePair] = fastInvoker;
                 }
             }
         }
@@ -213,7 +194,7 @@ namespace NMapper
                 foreach (var item in collection)
                 {
                     var r = elementMap.Invoke(item, context);
-                    if (r.Exception == null)
+                    if (r.Success)
                     {
                         array.SetValue(r.Result, i++);
                     }
@@ -229,7 +210,7 @@ namespace NMapper
                 foreach (var item in enumerable)
                 {
                     var r = elementMap.Invoke(item, context);
-                    if (r.Exception == null)
+                    if (r.Success)
                     {
                         temp.Add(r.Result);
                     }
@@ -267,7 +248,7 @@ namespace NMapper
                 foreach (var item in enumerable)
                 {
                     var mappingResult = elementMap.Invoke(item, context);
-                    if (mappingResult.Exception == null)
+                    if (mappingResult.Success)
                     {
                         list.Add(mappingResult.Result);
                     }
@@ -276,8 +257,6 @@ namespace NMapper
 
             return new MappingResult(list, null, context);
         }
-
-
 
         private static bool TryGetEnumerableElementType(Type type, out Type elementType)
         {

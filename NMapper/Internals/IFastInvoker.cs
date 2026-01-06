@@ -4,5 +4,4 @@
     {
         MappingResult Invoke(object? source, MappingContext context);
     }
-
 }
