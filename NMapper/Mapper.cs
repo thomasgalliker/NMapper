@@ -1,20 +1,18 @@
 ﻿using System.Collections;
 using System.Diagnostics.CodeAnalysis;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using NMapper.Internals;
 
 namespace NMapper
 {
     public sealed class Mapper : IMapper
     {
-        private readonly ICollectionFactory collectionFactory = new FastCollectionFactory();
+        private readonly ICollectionFactory collectionFactory;
         private readonly Dictionary<TypePair, IFastInvoker> map = new();
 
-        private readonly ILogger<Mapper> logger;
+        private readonly MapperOptions options;
 
         public Mapper()
-            : this(new NullLogger<Mapper>())
+            : this(new MapperOptions())
         {
         }
 
@@ -24,23 +22,24 @@ namespace NMapper
         }
 
         public Mapper(IEnumerable<IMapping> mappings)
-            : this(new NullLogger<Mapper>(), mappings)
+            : this(new MapperOptions(), mappings)
         {
         }
 
-        public Mapper(ILogger<Mapper> logger)
-        {
-            this.logger = logger;
-        }
-
-        public Mapper(ILogger<Mapper> logger, params IMapping[] mappings)
-            : this(logger, (IEnumerable<IMapping>)mappings)
+        public Mapper(MapperOptions? options)
+:             this(options, Enumerable.Empty<IMapping>())
         {
         }
 
-        public Mapper(ILogger<Mapper> logger, IEnumerable<IMapping> mappings)
+        public Mapper(MapperOptions? options, params IMapping[] mappings)
+            : this(options, (IEnumerable<IMapping>)mappings)
         {
-            this.logger = logger;
+        }
+
+        public Mapper(MapperOptions? options, IEnumerable<IMapping> mappings)
+        {
+            this.options = options ?? new MapperOptions();
+            this.collectionFactory = this.options.CollectionFactory ?? new FastCollectionFactory();
             this.RegisterMappings(mappings);
         }
 

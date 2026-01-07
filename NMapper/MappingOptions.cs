@@ -12,6 +12,9 @@ namespace NMapper
             this.ServiceLifetime = ServiceLifetime.Singleton;
         }
 
+        /// <summary>
+        /// Configures the mappings to be used in <see cref="IMapper"/> when a new instance is created.
+        /// </summary>
         public MappingOptionsMappingCollection Mappings { get; }
 
         /// <summary>

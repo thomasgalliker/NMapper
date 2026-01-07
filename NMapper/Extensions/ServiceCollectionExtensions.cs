@@ -1,7 +1,5 @@
 ﻿using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace NMapper
 {
@@ -13,7 +11,7 @@ namespace NMapper
 
         /// <summary>
         /// Registers mapping service <see cref="IMapper"/> in the dependency injection container.
-        /// All mappings found in the specified assemblies (see <see cref="MappingOptions.MappingAssemblies"/>) will be used in the mapper.
+        /// All mappings found in the specified assemblies (see <see cref="MappingOptions.Mappings"/>) will be used in the mapper.
         /// </summary>
         public static IServiceCollection AddMapping(this IServiceCollection services, Action<MappingOptions>? options = null)
         {
@@ -35,10 +33,10 @@ namespace NMapper
 
             services.Add(new ServiceDescriptor(typeof(IMapper), s =>
             {
-                var logger = s.GetService<ILogger<Mapper>>() ?? new NullLogger<Mapper>();
+                var mapperOptions = s.GetService<MapperOptions>();
                 var registeredMappings = s.GetServices<IMapping>() ?? Array.Empty<IMapping>();
                 var mappings = mappingOptions.Mappings.Mappings.Union(registeredMappings);
-                return new Mapper(logger, mappings);
+                return new Mapper(mapperOptions, mappings);
             }, serviceLifetime));
 
             return services;
