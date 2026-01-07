@@ -8,6 +8,7 @@ namespace NMapper
 {
     public sealed class Mapper : IMapper
     {
+        private readonly ICollectionFactory collectionFactory = new FastCollectionFactory();
         private readonly Dictionary<TypePair, IFastInvoker> map = new();
 
         private readonly ILogger<Mapper> logger;
@@ -188,9 +189,9 @@ namespace NMapper
 
             if (source is ICollection collection)
             {
-                var array = Array.CreateInstance(elementTypePair.TargetType, collection.Count);
+                var array = this.collectionFactory.CreateArray(elementTypePair.TargetType, collection.Count);
 
-                int i = 0;
+                var i = 0;
                 foreach (var item in collection)
                 {
                     var r = elementMap.Invoke(item, context);
@@ -216,7 +217,7 @@ namespace NMapper
                     }
                 }
 
-                var array = Array.CreateInstance(elementTypePair.TargetType, temp.Count);
+                var array = this.collectionFactory.CreateArray(elementTypePair.TargetType, temp.Count);
                 for (var i = 0; i < temp.Count; i++)
                 {
                     array.SetValue(temp[i], i);
@@ -231,8 +232,6 @@ namespace NMapper
 
         private MappingResult MapEnumerable<TTarget>(object? source, TypePair elementTypePair, MappingContext context)
         {
-            var listType = typeof(List<>).MakeGenericType(elementTypePair.TargetType);
-
             if (!this.map.TryGetValue(elementTypePair, out var elementMap))
             {
                 var ex = new MissingMappingException(elementTypePair.SourceType, elementTypePair.TargetType);
@@ -241,7 +240,7 @@ namespace NMapper
                 return new MappingResult(default(TTarget), ex, context);
             }
 
-            var list = (IList)Activator.CreateInstance(listType)!;
+            var list = this.collectionFactory.CreateList(elementTypePair.TargetType);
 
             if (source is IEnumerable enumerable)
             {
