@@ -87,11 +87,35 @@ namespace NMapper
 
         public IEnumerable<TypePair> Mappings => this.map.Keys;
 
+        private MappingContext CreateMappingContext(Action<MapOptions>? options)
+        {
+            MappingContext context;
+
+            if (options != null)
+            {
+                var mapOptions = new MapOptions();
+                options(mapOptions);
+                context = new MappingContext(this, mapOptions);
+            }
+            else
+            {
+                context = new MappingContext(this, null);
+            }
+
+            return context;
+        }
+
         [return: NotNullIfNotNull(nameof(source))]
         public TTarget? Map<TTarget>(object? source)
         {
+            return this.Map<TTarget>(source, null);
+        }
+
+        [return: NotNullIfNotNull(nameof(source))]
+        public TTarget? Map<TTarget>(object? source, Action<MapOptions>? options)
+        {
             var sourceType = source?.GetType() ?? null;
-            var context = new MappingContext(this);
+            var context = this.CreateMappingContext(options);
             var result = this.MapInternal<TTarget>(source, sourceType, context);
 
             context.ThrowIfAnyException();
@@ -102,9 +126,15 @@ namespace NMapper
         [return: NotNullIfNotNull(nameof(source))]
         public TTarget? Map<TSource, TTarget>(TSource? source)
         {
+            return this.Map<TSource, TTarget>(source, null);
+        }
+
+        [return: NotNullIfNotNull(nameof(source))]
+        public TTarget? Map<TSource, TTarget>(TSource? source, Action<MapOptions>? options)
+        {
             var sourceType = typeof(TSource);
 
-            var context = new MappingContext(this);
+            var context = this.CreateMappingContext(options);
             var result = this.MapInternal<TTarget>(source, sourceType, context);
 
             context.ThrowIfAnyException();
@@ -126,13 +156,13 @@ namespace NMapper
             {
                 MappingException? mappingException = null;
 
-                if (this.Options.ThrowIfMaxDepthExceeded)
+                if (context.ThrowIfMaxDepthExceeded)
                 {
                     mappingException = new MappingException(
                         sourceType,
                         typeof(TTarget),
                         this.GetType(),
-                        new InvalidOperationException($"Maximum recursion depth exceeded (MaxDepth: {this.Options.MaxDepth})."));
+                        new InvalidOperationException($"Maximum recursion depth exceeded (MaxDepth: {context.MaxDepth})."));
 
                     context.AddException(mappingException);
                 }

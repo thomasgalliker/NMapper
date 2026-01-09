@@ -5,14 +5,16 @@ namespace NMapper.Internals
     internal sealed class MappingContext : IMappingContext
     {
         private readonly Mapper mapper;
+        private readonly MapOptions? options;
         private readonly List<Exception> exceptions = new();
 
         private int depth;
         private Dictionary<object, object>? references;
 
-        internal MappingContext(Mapper mapper)
+        internal MappingContext(Mapper mapper, MapOptions? options)
         {
             this.mapper = mapper;
+            this.options = options;
         }
 
         public void AddException(Exception exception)
@@ -70,10 +72,11 @@ namespace NMapper.Internals
                 return true;
             }
 
-            if (this.mapper.Options.MaxDepth > 0)
+            var maxDepth = this.GetMaxDepth();
+            if (maxDepth > 0)
             {
                 this.depth++;
-                if (this.depth > this.mapper.Options.MaxDepth)
+                if (this.depth > maxDepth)
                 {
                     return false;
                 }
@@ -89,17 +92,23 @@ namespace NMapper.Internals
                 return;
             }
 
-            if (this.mapper.Options.MaxDepth > 0)
+            var maxDepth = this.GetMaxDepth();
+            if (maxDepth > 0)
             {
                 this.depth--;
             }
+        }
+
+        private int GetMaxDepth()
+        {
+            return this.options?.MaxDepth ?? this.mapper.Options.MaxDepth;
         }
 
         internal bool TryGetMappedObject(object source, out object? target)
         {
             target = null;
 
-            if (!this.mapper.Options.EnableRecursionHandling ||
+            if (!this.EnableRecursionHandling ||
                 !ReferenceGuards.IsTrackable(source) ||
                 this.references is null)
             {
@@ -109,9 +118,24 @@ namespace NMapper.Internals
             return this.references.TryGetValue(source, out target);
         }
 
+        private bool EnableRecursionHandling
+        {
+            get => this.options?.EnableRecursionHandling ?? this.mapper.Options.EnableRecursionHandling;
+        }
+
+        public bool ThrowIfMaxDepthExceeded
+        {
+            get => this.options?.ThrowIfMaxDepthExceeded ?? this.mapper.Options.ThrowIfMaxDepthExceeded;
+        }
+
+        public int MaxDepth
+        {
+            get => this.options?.MaxDepth ?? this.mapper.Options.MaxDepth;
+        }
+
         internal void StoreMappedObject(object source, object target)
         {
-            if (!this.mapper.Options.EnableRecursionHandling ||
+            if (!this.EnableRecursionHandling ||
                 !ReferenceGuards.IsTrackable(source) ||
                 !ReferenceGuards.IsTrackable(target))
             {

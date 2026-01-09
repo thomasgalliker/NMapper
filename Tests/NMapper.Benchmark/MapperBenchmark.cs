@@ -43,14 +43,15 @@ namespace Benchmark
 
         private void InitNMapper()
         {
-            this.mapper = new Mapper(new IMapping[]
+            var mappings = new IMapping[]
             {
              new SourceToTargetCollectionsMapping(),
                 new ItemMapping(),
                 new ListItemMapping(),
                 //new PersonMapping(),
                 //new CountryMapping()
-            });
+            };
+            this.mapper = new Mapper(new MapperOptions { Mappings = mappings });
         }
 
         [Benchmark]

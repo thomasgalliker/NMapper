@@ -15,10 +15,13 @@ namespace NMapper
         [return: NotNullIfNotNull(nameof(source))]
         TTarget? Map<TTarget>(object? source);
 
-        //[return: NotNullIfNotNull(nameof(source))]
-        //TTarget? Map<TTarget>(object? source, Action<MapperOptions> options);
+        [return: NotNullIfNotNull(nameof(source))]
+        TTarget? Map<TTarget>(object? source, Action<MapOptions> options);
 
         [return: NotNullIfNotNull(nameof(source))]
         TTarget? Map<TSource, TTarget>(TSource? source);
+
+        [return: NotNullIfNotNull(nameof(source))]
+        TTarget? Map<TSource, TTarget>(TSource? source, Action<MapOptions> options);
     }
 }

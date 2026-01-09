@@ -458,6 +458,41 @@ namespace NMapper.Tests
         }
 
         [Fact]
+        public void ShouldMap_WithRecursion_MapOptions()
+        {
+            // Arrange
+            var mapperOptions = new MapperOptions
+            {
+                Mappings = new IMapping[]
+                {
+                    new VenueMapping(),
+                    new WaterAreaMapping(),
+                },
+                EnableRecursionHandling = false,
+            };
+
+            IMapper mapper = new Mapper(mapperOptions);
+
+            var venue = Venue.GetRecursiveVenueTestData();
+
+            // Act
+            var venueDto = mapper.Map<VenueDto>(venue, o => o.EnableRecursionHandling = true);
+
+            // Assert
+            venueDto.Should().NotBeNull();
+            venueDto.Name.Should().Be("Lake");
+            venueDto.Areas.Should().HaveCount(1);
+
+            var waterAreaDto = venueDto.Areas[0];
+            waterAreaDto.Name.Should().Be("North");
+
+            var nestedVenueDto = waterAreaDto.Venue;
+            nestedVenueDto.Should().NotBeNull();
+            nestedVenueDto.Name.Should().Be("Lake");
+            nestedVenueDto.Areas.Should().HaveCount(1);
+        }
+
+        [Fact]
         public void ShouldMap_WithRecursion_MaxDepth()
         {
             // Arrange
