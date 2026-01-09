@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using NMapper.Internals;
 
@@ -93,7 +92,7 @@ namespace NMapper
 
             if (options != null)
             {
-                var mapOptions = new MapOptions();
+                var mapOptions = new MapOptions(this.Options);
                 options(mapOptions);
                 context = new MappingContext(this, mapOptions);
             }

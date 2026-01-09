@@ -1,7 +1,14 @@
 ﻿namespace NMapper
 {
-    public class MapOptions
+    public sealed class MapOptions
     {
+        internal MapOptions(MapperOptions options)
+        {
+            this.EnableRecursionHandling = options.EnableRecursionHandling;
+            this.MaxDepth = options.MaxDepth;
+            this.ThrowIfMaxDepthExceeded = options.ThrowIfMaxDepthExceeded;
+        }
+
         /// <summary>
         /// Enables tracking of object references during mapping.
         /// When enabled, previously mapped source objects will be reused
