@@ -47,7 +47,7 @@ namespace NMapper.Internals
             }
         }
 
-        public void ThrowIfAny()
+        public void ThrowIfAnyException()
         {
             if (this.exceptions.Count == 1)
             {

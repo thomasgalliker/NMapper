@@ -104,7 +104,7 @@ namespace NMapper
             var context = new MappingContext(this);
             var result = this.MapInternal<TTarget>(source, sourceType, context);
 
-            context.ThrowIfAny();
+            context.ThrowIfAnyException();
 
             return (TTarget?)result.Result;
         }
@@ -117,7 +117,7 @@ namespace NMapper
             var context = new MappingContext(this);
             var result = this.MapInternal<TTarget>(source, sourceType, context);
 
-            context.ThrowIfAny();
+            context.ThrowIfAnyException();
 
             return (TTarget?)result.Result;
         }
