@@ -1,5 +1,6 @@
 ﻿using FluentAssertions;
 using NMapper.TestData;
+using NMapper.TestData.Mappings;
 using Xunit;
 
 namespace NMapper.Tests
@@ -394,6 +395,126 @@ namespace NMapper.Tests
             aggregateException.InnerExceptions.All(ex => ex is MissingMappingException).Should().BeTrue();
             aggregateException.InnerExceptions[0].Message.Should().Contain("No mapping registered for Person to Int32");
             aggregateException.InnerExceptions[1].Message.Should().Contain("No mapping registered for Person to Single");
+        }
+
+        [Fact(Skip = "Run manually")]
+        public void ShouldMap_WithRecursion_ThrowsStackoverflowException()
+        {
+            // Arrange
+            var mapperOptions = new MapperOptions
+            {
+                EnableRecursionHandling = false,
+                Mappings = new IMapping[]
+                {
+                    new VenueMapping(),
+                    new WaterAreaMapping(),
+                }
+            };
+
+            IMapper mapper = new Mapper(mapperOptions);
+
+            var venue = Venue.GetRecursiveVenueTestData();
+
+            // Act
+            mapper.Map<VenueDto>(venue);
+
+            // Assert
+            // Debug and observe the StackOverflowException
+        }
+
+        [Fact]
+        public void ShouldMap_WithRecursion()
+        {
+            // Arrange
+            var mapperOptions = new MapperOptions
+            {
+                Mappings = new IMapping[]
+                {
+                    new VenueMapping(),
+                    new WaterAreaMapping(),
+                },
+                EnableRecursionHandling = true,
+            };
+
+            IMapper mapper = new Mapper(mapperOptions);
+
+            var venue = Venue.GetRecursiveVenueTestData();
+
+            // Act
+            var venueDto = mapper.Map<VenueDto>(venue);
+
+            // Assert
+            venueDto.Should().NotBeNull();
+            venueDto.Name.Should().Be("Lake");
+            venueDto.Areas.Should().HaveCount(1);
+
+            var waterAreaDto = venueDto.Areas[0];
+            waterAreaDto.Name.Should().Be("North");
+
+            var nestedVenueDto = waterAreaDto.Venue;
+            nestedVenueDto.Should().NotBeNull();
+            nestedVenueDto.Name.Should().Be("Lake");
+            nestedVenueDto.Areas.Should().HaveCount(1);
+        }
+
+        [Fact]
+        public void ShouldMap_WithRecursion_MaxDepth()
+        {
+            // Arrange
+            var mapperOptions = new MapperOptions
+            {
+                Mappings = new IMapping[]
+                {
+                    new VenueMapping(),
+                    new WaterAreaMapping(),
+                },
+                EnableRecursionHandling = true,
+                MaxDepth = 2,
+            };
+
+            IMapper mapper = new Mapper(mapperOptions);
+            var venue = Venue.GetRecursiveVenueTestData();
+
+            // Act
+            var venueDto = mapper.Map<VenueDto>(venue);
+
+            // Assert
+            venueDto.Should().NotBeNull();
+            venueDto.Name.Should().Be("Lake");
+            venueDto.Areas.Should().HaveCount(1);
+
+            var waterAreaDto = venueDto.Areas[0];
+            waterAreaDto.Name.Should().Be("North");
+
+            var nestedVenueDto = waterAreaDto.Venue;
+            nestedVenueDto.Should().BeNull();
+        }
+
+        [Fact]
+        public void ShouldMap_WithRecursion_MaxDepth_ThrowsException()
+        {
+            // Arrange
+            var mapperOptions = new MapperOptions
+            {
+                Mappings = new IMapping[]
+                {
+                    new VenueMapping(),
+                    new WaterAreaMapping(),
+                },
+                EnableRecursionHandling = true,
+                MaxDepth = 2,
+                ThrowIfMaxDepthExceeded = true
+            };
+
+            IMapper mapper = new Mapper(mapperOptions);
+            var venue = Venue.GetRecursiveVenueTestData();
+
+            // Act
+            Action action = () => mapper.Map<VenueDto>(venue);
+
+            // Assert
+            var ex = action.Should().Throw<MappingException>().WithInnerException<InvalidOperationException>().Which;
+            ex.Message.Should().Contain("Maximum recursion depth exceeded");
         }
     }
 }

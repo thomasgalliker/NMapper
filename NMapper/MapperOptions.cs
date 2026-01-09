@@ -6,6 +6,39 @@ namespace NMapper
     {
         private static readonly ICollectionFactory DefaultCollectionFactory = new FastCollectionFactory();
 
+        public MapperOptions()
+        {
+            this.Mappings = Array.Empty<IMapping>();
+        }
+
+        public IMapping[] Mappings { get; set; }
+
+        /// <summary>
+        /// The factory used to construct new collections (arrays and lists).
+        /// Default: <seealso cref="FastCollectionFactory"/>
+        /// </summary>
         public ICollectionFactory CollectionFactory { get; set; } = DefaultCollectionFactory;
+
+        /// <summary>
+        /// Enables tracking of object references during mapping.
+        /// When enabled, previously mapped source objects will be reused
+        /// to preserve object identity and correctly handle circular graphs.
+        /// </summary>
+        /// <remarks>
+        /// Enabling this option has a measurable runtime cost.
+        /// </remarks>
+        public bool EnableRecursionHandling { get; set; } = false;
+
+        /// <summary>
+        /// Limits the maximum depth of object graph traversal during mapping.
+        /// This can be used to prevent infinite recursion for self-referential types.
+        /// Default: 0 (disabled).
+        /// </summary>
+        public int MaxDepth { get; set; } = 0;
+
+        /// <summary>
+        /// Throws a <see cref="MappingException"/> if a recursive mapping exceeds the configured <see cref="MaxDepth"/>.
+        /// </summary>
+        public bool ThrowIfMaxDepthExceeded { get; set; } = false;
     }
 }

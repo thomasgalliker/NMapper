@@ -7,6 +7,9 @@ namespace NMapper.Internals
         private readonly Mapper mapper;
         private readonly List<Exception> exceptions = new();
 
+        private int depth;
+        private Dictionary<object, object>? references;
+
         internal MappingContext(Mapper mapper)
         {
             this.mapper = mapper;
@@ -59,6 +62,65 @@ namespace NMapper.Internals
                 throw new AggregateException(this.exceptions);
             }
         }
-    }
 
+        internal bool TryEnter(object source)
+        {
+            if (!ReferenceGuards.IsTrackable(source))
+            {
+                return true;
+            }
+
+            if (this.mapper.Options.MaxDepth > 0)
+            {
+                this.depth++;
+                if (this.depth > this.mapper.Options.MaxDepth)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        internal void Exit(object source)
+        {
+            if (!ReferenceGuards.IsTrackable(source))
+            {
+                return;
+            }
+
+            if (this.mapper.Options.MaxDepth > 0)
+            {
+                this.depth--;
+            }
+        }
+
+        internal bool TryGetMappedObject(object source, out object? target)
+        {
+            target = null;
+
+            if (!this.mapper.Options.EnableRecursionHandling ||
+                !ReferenceGuards.IsTrackable(source) ||
+                this.references is null)
+            {
+                return false;
+            }
+
+            return this.references.TryGetValue(source, out target);
+        }
+
+        internal void StoreMappedObject(object source, object target)
+        {
+            if (!this.mapper.Options.EnableRecursionHandling ||
+                !ReferenceGuards.IsTrackable(source) ||
+                !ReferenceGuards.IsTrackable(target))
+            {
+                return;
+            }
+
+            this.references ??= new Dictionary<object, object>(ReferenceEqualityComparer.Instance);
+            this.references[source] = target;
+        }
+
+    }
 }

@@ -11,11 +11,11 @@ namespace NMapper
 
         /// <summary>
         /// Registers mapping service <see cref="IMapper"/> in the dependency injection container.
-        /// All mappings found in the specified assemblies (see <see cref="MappingOptions.Mappings"/>) will be used in the mapper.
+        /// All mappings found in the specified assemblies (see <see cref="MapperServiceOptions.Mappings"/>) will be used in the mapper.
         /// </summary>
-        public static IServiceCollection AddMapping(this IServiceCollection services, Action<MappingOptions>? options = null)
+        public static IServiceCollection AddMapping(this IServiceCollection services, Action<MapperServiceOptions>? options = null)
         {
-            var mappingOptions = new MappingOptions();
+            var mappingOptions = new MapperServiceOptions();
             options?.Invoke(mappingOptions);
 
             var serviceLifetime = mappingOptions.ServiceLifetime;
@@ -33,10 +33,15 @@ namespace NMapper
 
             services.Add(new ServiceDescriptor(typeof(IMapper), s =>
             {
-                var mapperOptions = s.GetService<MapperOptions>();
+                var mapperOptions = s.GetService<MapperOptions>() ?? mappingOptions;
                 var registeredMappings = s.GetServices<IMapping>() ?? Array.Empty<IMapping>();
-                var mappings = mappingOptions.Mappings.Mappings.Union(registeredMappings);
-                return new Mapper(mapperOptions, mappings);
+                var mappings = mappingOptions.Mappings.Mappings
+                    .Union(registeredMappings)
+                    .Union(mapperOptions.Mappings)
+                    .ToArray();
+
+                mapperOptions.Mappings = mappings;
+                return new Mapper(mapperOptions);
             }, serviceLifetime));
 
             return services;

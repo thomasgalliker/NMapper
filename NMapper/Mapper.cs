@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using NMapper.Internals;
 
@@ -8,8 +9,7 @@ namespace NMapper
     {
         private readonly ICollectionFactory collectionFactory;
         private readonly Dictionary<TypePair, IFastInvoker> map = new();
-
-        private readonly MapperOptions options;
+        internal readonly MapperOptions Options;
 
         public Mapper()
             : this(new MapperOptions())
@@ -17,30 +17,20 @@ namespace NMapper
         }
 
         public Mapper(params IMapping[] mappings)
-            : this((IEnumerable<IMapping>)mappings)
+            : this(new MapperOptions { Mappings = mappings })
         {
         }
 
         public Mapper(IEnumerable<IMapping> mappings)
-            : this(new MapperOptions(), mappings)
+            : this(new MapperOptions { Mappings = mappings.ToArray() })
         {
         }
 
         public Mapper(MapperOptions? options)
-            : this(options, Enumerable.Empty<IMapping>())
         {
-        }
-
-        public Mapper(MapperOptions? options, params IMapping[] mappings)
-            : this(options, (IEnumerable<IMapping>)mappings)
-        {
-        }
-
-        public Mapper(MapperOptions? options, IEnumerable<IMapping> mappings)
-        {
-            this.options = options ?? new MapperOptions();
-            this.collectionFactory = this.options.CollectionFactory ?? new FastCollectionFactory();
-            this.RegisterMappings(mappings);
+            this.Options = options ?? new MapperOptions();
+            this.collectionFactory = this.Options.CollectionFactory ?? new FastCollectionFactory();
+            this.RegisterMappings(this.Options.Mappings);
         }
 
         public void RegisterMappings(IEnumerable<IMapping> mappings)
@@ -124,41 +114,80 @@ namespace NMapper
 
         internal MappingResult MapInternal<TTarget>(object? source, Type? sourceType, MappingContext context)
         {
-            if (sourceType == null)
+            if (source == null || sourceType == null)
             {
-                return default;
+                return new MappingResult(default(TTarget), null, context);
             }
 
             var typePair = new TypePair(sourceType, typeof(TTarget));
 
-            if (this.TryExecuteExplicitMapping(source, typePair, context, out var explicitResult, out var explicitException))
+            // Recursion detection
+            if (!context.TryEnter(source))
             {
-                return new MappingResult((TTarget?)explicitResult, explicitException, context);
-            }
+                MappingException? mappingException = null;
 
-            if (TryGetEnumerableElementType(sourceType, out var sourceElementType))
-            {
-                // Array
-                if (typePair.TargetType.IsArray)
+                if (this.Options.ThrowIfMaxDepthExceeded)
                 {
-                    var targetElementType = typePair.TargetType.GetElementType()!;
-                    var mappingResult = this.MapArray<TTarget>(source, new TypePair(sourceElementType, targetElementType), context);
-                    return mappingResult;
+                    mappingException = new MappingException(
+                        sourceType,
+                        typeof(TTarget),
+                        this.GetType(),
+                        new InvalidOperationException($"Maximum recursion depth exceeded (MaxDepth: {this.Options.MaxDepth})."));
+
+                    context.AddException(mappingException);
                 }
 
-                // IEnumerable<T>
+                return new(default, mappingException, context);
+            }
+
+            try
+            {
+                if (context.TryGetMappedObject(source, out var cached))
                 {
-                    if (TryGetEnumerableElementType(typePair.TargetType, out var targetElementType))
+                    return new MappingResult((TTarget?)cached, null, context);
+                }
+
+                if (this.TryExecuteExplicitMapping(source, typePair, context, out var explicitResult, out var explicitException))
+                {
+                    if (explicitException is null && explicitResult is not null)
                     {
-                        var mappingResult = this.MapEnumerable<TTarget>(source, new TypePair(sourceElementType, targetElementType), context);
+                        context.StoreMappedObject(source, explicitResult);
+                    }
+
+                    return new MappingResult((TTarget?)explicitResult, explicitException, context);
+                }
+
+
+                if (TryGetEnumerableElementType(sourceType, out var sourceElementType))
+                {
+                    // Array
+                    if (typePair.TargetType.IsArray)
+                    {
+                        var targetElementType = typePair.TargetType.GetElementType()!;
+                        var elementTypePair = new TypePair(sourceElementType, targetElementType);
+                        var mappingResult = this.MapArray<TTarget>(source, elementTypePair, context);
                         return mappingResult;
+                    }
+
+                    // IEnumerable<T>
+                    {
+                        if (TryGetEnumerableElementType(typePair.TargetType, out var targetElementType))
+                        {
+                            var elementTypePair = new TypePair(sourceElementType, targetElementType);
+                            var mappingResult = this.MapEnumerable<TTarget>(source, elementTypePair, context);
+                            return mappingResult;
+                        }
                     }
                 }
             }
+            finally
+            {
+                context.Exit(source);
+            }
 
-            var ex = new MissingMappingException(sourceType, typePair.TargetType);
-            context.AddException(ex);
-            return new(default, ex, context);
+            var missingMappingException = new MissingMappingException(sourceType, typePair.TargetType);
+            context.AddException(missingMappingException);
+            return new(default, missingMappingException, context);
         }
 
         private bool TryExecuteExplicitMapping(object? source, TypePair typePair, MappingContext context, out object? result, out Exception? exception)
@@ -189,6 +218,7 @@ namespace NMapper
             if (source is ICollection collection)
             {
                 var array = this.collectionFactory.CreateArray(elementTypePair.TargetType, collection.Count);
+                context.StoreMappedObject(source, array);
 
                 var i = 0;
                 foreach (var item in collection)
@@ -217,6 +247,8 @@ namespace NMapper
                 }
 
                 var array = this.collectionFactory.CreateArray(elementTypePair.TargetType, temp.Count);
+                context.StoreMappedObject(source, array);
+
                 for (var i = 0; i < temp.Count; i++)
                 {
                     array.SetValue(temp[i], i);
@@ -240,6 +272,7 @@ namespace NMapper
             }
 
             var list = this.collectionFactory.CreateList(elementTypePair.TargetType);
+            context.StoreMappedObject(source, list);
 
             if (source is IEnumerable enumerable)
             {
