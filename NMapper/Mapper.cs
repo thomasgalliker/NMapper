@@ -27,7 +27,7 @@ namespace NMapper
         }
 
         public Mapper(MapperOptions? options)
-:             this(options, Enumerable.Empty<IMapping>())
+            : this(options, Enumerable.Empty<IMapping>())
         {
         }
 
