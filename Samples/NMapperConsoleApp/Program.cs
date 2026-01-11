@@ -23,7 +23,7 @@ namespace NMapperConsoleApp
                 o.Mappings.ScanAssembly(typeof(Person).Assembly);
                 //o.Mappings.Add(new PersonMapping());
                 //o.Mappings.Add(new PersonMapping(), new VenueMapping());
-                //o.Mappings.AddRange(new IMapping[] { new PersonMapping(), new VenueMapping() });
+                //o.Mappings.Add(new IMapping[] { new PersonMapping(), new VenueMapping() });
                 o.ServiceLifetime = ServiceLifetime.Singleton;
             });
 
