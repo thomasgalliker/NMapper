@@ -24,4 +24,21 @@
             };
         }
     }
+
+    //public class PersonMapping :
+    //    IMapping<Person, PersonDto>,
+    //    IMapping<PersonDto, Person>
+    //{
+    //    public PersonDto Map(Person person) => new PersonDto
+    //    {
+    //        Id = person.Id,
+    //        Name = person.Name,
+    //    };
+
+    //    public Person Map(PersonDto personDto) => new Person
+    //    {
+    //        Id = personDto.Id,
+    //        Name = personDto.Name,
+    //    };
+    //}
 }

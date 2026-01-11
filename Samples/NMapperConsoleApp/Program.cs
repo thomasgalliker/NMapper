@@ -10,24 +10,24 @@ namespace NMapperConsoleApp
     {
         static void Main(string[] args)
         {
-            var serviceCollection = new ServiceCollection();
-            serviceCollection.AddLogging(o =>
+            var services = new ServiceCollection();
+            services.AddLogging(o =>
             {
                 o.ClearProviders();
                 o.AddSimpleConsole();
                 o.SetMinimumLevel(LogLevel.Debug);
             });
 
-            serviceCollection.AddMapping(o =>
+            services.AddMapping(o =>
             {
                 o.Mappings.ScanAssembly(typeof(Person).Assembly);
                 //o.Mappings.Add(new PersonMapping());
                 //o.Mappings.Add(new PersonMapping(), new VenueMapping());
                 //o.Mappings.AddRange(new IMapping[] { new PersonMapping(), new VenueMapping() });
-                o.ServiceLifetime = ServiceLifetime.Transient;
+                o.ServiceLifetime = ServiceLifetime.Singleton;
             });
 
-            var serviceProvider = serviceCollection.BuildServiceProvider();
+            var serviceProvider = services.BuildServiceProvider();
 
             using (var scope = serviceProvider.CreateScope())
             {
