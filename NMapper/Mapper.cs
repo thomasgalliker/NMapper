@@ -143,11 +143,11 @@ namespace NMapper
 
         internal MappingResult MapInternal<TTarget>(object? source, Type? sourceType, MappingContext context)
         {
-            if (source == null || sourceType == null)
+            if (sourceType == null)
             {
                 return new MappingResult(default(TTarget), null, context);
             }
-
+            
             var typePair = new TypePair(sourceType, typeof(TTarget));
 
             // Recursion detection

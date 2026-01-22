@@ -65,7 +65,7 @@ namespace NMapper.Internals
             }
         }
 
-        internal bool TryEnter(object source)
+        internal bool TryEnter(object? source)
         {
             if (!ReferenceGuards.IsTrackable(source))
             {
@@ -85,7 +85,7 @@ namespace NMapper.Internals
             return true;
         }
 
-        internal void Exit(object source)
+        internal void Exit(object? source)
         {
             if (!ReferenceGuards.IsTrackable(source))
             {
@@ -104,11 +104,12 @@ namespace NMapper.Internals
             return this.options?.MaxDepth ?? this.mapper.Options.MaxDepth;
         }
 
-        internal bool TryGetMappedObject(object source, out object? target)
+        internal bool TryGetMappedObject(object? source, out object? target)
         {
             target = null;
 
-            if (!this.EnableRecursionHandling ||
+            if (source == null ||
+                !this.EnableRecursionHandling ||
                 !ReferenceGuards.IsTrackable(source) ||
                 this.references is null)
             {
@@ -133,9 +134,10 @@ namespace NMapper.Internals
             get => this.options?.MaxDepth ?? this.mapper.Options.MaxDepth;
         }
 
-        internal void StoreMappedObject(object source, object target)
+        internal void StoreMappedObject(object? source, object target)
         {
-            if (!this.EnableRecursionHandling ||
+            if (source == null ||
+                !this.EnableRecursionHandling ||
                 !ReferenceGuards.IsTrackable(source) ||
                 !ReferenceGuards.IsTrackable(target))
             {
