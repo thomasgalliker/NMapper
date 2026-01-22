@@ -348,6 +348,44 @@ namespace NMapper.Tests
         }
 
         [Fact]
+        public void ShouldMapNullableDecimalToDouble_NaN()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new NullableDecimalToDoubleMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            decimal? decimalValue = null;
+
+            // Act
+            var doubleValue = mapper.Map<decimal?, double>(decimalValue);
+
+            // Assert
+            doubleValue.Should().Be(double.NaN);
+        }
+
+        [Fact]
+        public void ShouldMapNullableDecimalToDouble_Value()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new NullableDecimalToDoubleMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            decimal? decimalValue = 10m;
+
+            // Act
+            var doubleValue = mapper.Map<decimal?, double>(decimalValue);
+
+            // Assert
+            doubleValue.Should().Be(10d);
+        }
+
+        [Fact]
         public void ShouldMap_ThrowsMappingException()
         {
             // Arrange
