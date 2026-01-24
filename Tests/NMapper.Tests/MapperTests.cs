@@ -348,6 +348,25 @@ namespace NMapper.Tests
         }
 
         [Fact]
+        public void ShouldMapUsingDelegateMapping()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new DelegateMapping<decimal, double>(d => (double)d),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            var decimalValue = 123.45m;
+
+            // Act
+            var doubleValue = mapper.Map<double>(decimalValue);
+
+            // Assert
+            doubleValue.Should().Be(123.45d);
+        }
+
+        [Fact]
         public void ShouldMapNullableDecimalToDouble_NaN()
         {
             // Arrange
