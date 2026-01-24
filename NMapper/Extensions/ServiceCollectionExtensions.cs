@@ -11,43 +11,43 @@ namespace NMapper
 
         /// <summary>
         /// Registers mapping service <see cref="IMapper"/> in the dependency injection container.
-        /// All mappings found in the specified assemblies (see <see cref="MappingOptions.MappingAssemblies"/>) will be used in the mapper.
+        /// All mappings found in the specified assemblies (see <see cref="MapperServiceOptions.Mappings"/>) will be used in the mapper.
         /// </summary>
-        public static IServiceCollection AddMapping(this IServiceCollection services, Action<MappingOptions>? options = null)
+        public static IServiceCollection AddMapping(this IServiceCollection services, Action<MapperServiceOptions>? options = null)
         {
-            var mappingOptions = new MappingOptions();
+            var mappingOptions = new MapperServiceOptions();
             options?.Invoke(mappingOptions);
 
-            services.AddScoped<IMapper, Mapper>();
+            var serviceLifetime = mappingOptions.ServiceLifetime;
 
-            var registerGenericMappingTypes = mappingOptions.RegisterGenericMappingTypes;
-
-            foreach (var assembly in mappingOptions.MappingAssemblies)
+            foreach (var assembly in mappingOptions.Mappings.MappingAssemblies)
             {
-                services.AddMappers(assembly, registerGenericMappingTypes);
+                services.AddMappers(assembly, serviceLifetime);
             }
 
-            if (mappingOptions.MappingAssembly != null)
+            if (mappingOptions.Mappings.MappingTypes.Any())
             {
-                services.AddMappers(mappingOptions.MappingAssembly, registerGenericMappingTypes);
+                var mappingTypes = mappingOptions.Mappings.MappingTypes;
+                services.AddMappings(mappingTypes, serviceLifetime);
             }
 
-            if (mappingOptions.Mappings != null)
+            services.Add(new ServiceDescriptor(typeof(IMapper), s =>
             {
-                var mappingTypes = mappingOptions.Mappings.Select(m => m.GetType()).ToArray();
-                services.AddMappers(mappingTypes, registerGenericMappingTypes);
-            }
+                var mapperOptions = s.GetService<MapperOptions>() ?? mappingOptions;
+                var registeredMappings = s.GetServices<IMapping>() ?? Array.Empty<IMapping>();
+                var mappings = mappingOptions.Mappings.Mappings
+                    .Union(registeredMappings)
+                    .Union(mapperOptions.Mappings)
+                    .ToArray();
 
-            if (mappingOptions.MappingTypes != null)
-            {
-                var mappingTypes = mappingOptions.MappingTypes;
-                services.AddMappers(mappingTypes, registerGenericMappingTypes);
-            }
+                mapperOptions.Mappings = mappings;
+                return new Mapper(mapperOptions);
+            }, serviceLifetime));
 
             return services;
         }
 
-        public static IServiceCollection AddMappers(this IServiceCollection services, Assembly assembly, bool registerGenericMappingTypes)
+        public static IServiceCollection AddMappers(this IServiceCollection services, Assembly assembly, ServiceLifetime serviceLifetime, bool registerGenericMappingTypes = false)
         {
             var mappingTypes = assembly.GetTypes()
                 .Where(t => !t.IsAbstract && !t.IsInterface)
@@ -55,12 +55,12 @@ namespace NMapper
                     .Any(i => i.IsGenericType &&
                               i.GetGenericTypeDefinition() is Type t && (t == MappingGenericType || t == MappingWithContextGenericType)));
 
-            services.AddMappers(mappingTypes, registerGenericMappingTypes);
+            services.AddMappings(mappingTypes, serviceLifetime, registerGenericMappingTypes);
 
             return services;
         }
 
-        private static void AddMappers(this IServiceCollection services, IEnumerable<Type> mappingTypes, bool registerGenericMappingTypes)
+        private static void AddMappings(this IServiceCollection services, IEnumerable<Type> mappingTypes, ServiceLifetime serviceLifetime, bool registerGenericMappingTypes = false)
         {
             foreach (var mappingType in mappingTypes)
             {
@@ -73,12 +73,11 @@ namespace NMapper
 
                     foreach (var mappingInterface in mappingInterfaces)
                     {
-                        services.AddScoped(mappingInterface, mappingType);
+                        services.Add(new ServiceDescriptor(mappingInterface, mappingType, serviceLifetime));
                     }
                 }
 
-
-                services.AddScoped(MappingMarkerType, mappingType);
+                services.Add(new ServiceDescriptor(MappingMarkerType, mappingType, serviceLifetime));
             }
         }
     }

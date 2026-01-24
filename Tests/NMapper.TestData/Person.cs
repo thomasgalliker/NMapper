@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 
-namespace NMapper.Tests.TestData
+namespace NMapper.TestData
 {
     [DebuggerDisplay("{this.Name}", Type = "Person")]
     public class Person
@@ -10,6 +10,8 @@ namespace NMapper.Tests.TestData
         public string? Name { get; set; }
 
         public int CountryId { get; set; }
+
+        public Address? Address { get; set; }
 
         public Country? Country { get; set; }
     }

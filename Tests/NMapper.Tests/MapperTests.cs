@@ -1,5 +1,6 @@
 ﻿using FluentAssertions;
-using NMapper.Tests.TestData;
+using NMapper.TestData;
+using NMapper.TestData.Mappings;
 using Xunit;
 
 namespace NMapper.Tests
@@ -23,14 +24,14 @@ namespace NMapper.Tests
             var mappings = Array.Empty<IMapping>();
             IMapper mapper = new Mapper(mappings);
 
-            var personDto = new PersonDto
+            var person = new Person
             {
                 Id = 1,
                 Name = "John Doe",
             };
 
             // Act
-            Action action = () => mapper.Map<PersonDto>(personDto);
+            Action action = () => mapper.Map<PersonDto>(person);
 
             // Assert
             action.Should().Throw<MissingMappingException>();
@@ -98,6 +99,51 @@ namespace NMapper.Tests
         }
 
         [Fact]
+        public void ShouldRegisterMapping()
+        {
+            // Arrange
+            IMapper mapper = new Mapper();
+
+            // Act
+            mapper.RegisterMapping(new PersonMapping());
+
+            // Assert
+            mapper.Mappings.Should().HaveCount(1);
+        }
+
+        [Fact]
+        public void ShouldRegisterMappings()
+        {
+            // Arrange
+            IMapper mapper = new Mapper();
+            var mappings = new IMapping[]
+            {
+                new CountryMapping(),
+                new PersonMapping(),
+            };
+
+            // Act
+            mapper.RegisterMappings(mappings);
+
+            // Assert
+            mapper.Mappings.Should().Contain(x => x.SourceType == typeof(Country) && x.TargetType == typeof(CountryDto));
+            mapper.Mappings.Should().Contain(x => x.SourceType == typeof(Person) && x.TargetType == typeof(PersonDto));
+        }
+
+        [Fact]
+        public void ShouldRegisterMappingWithDelegate()
+        {
+            // Arrange
+            IMapper mapper = new Mapper();
+
+            // Act
+            mapper.RegisterMapping<Person, PersonDto>(p => new PersonDto());
+
+            // Assert
+            mapper.Mappings.Should().HaveCount(1);
+        }
+
+        [Fact]
         public void ShouldMap_PersonToPersonDto_WithNestedCountryNull()
         {
             // Arrange
@@ -144,7 +190,7 @@ namespace NMapper.Tests
                 Name = "Canada",
                 NativeName = "Canada",
             };
-            var personsCount = 10;
+            var personsCount = 3;
             var persons = Enumerable.Range(1, personsCount)
                 .Select(i => new Person
                 {
@@ -152,6 +198,7 @@ namespace NMapper.Tests
                     Name = $"Person {i}",
                     CountryId = country.Id,
                     Country = country,
+                    Address = null,
                 }).ToArray();
 
             // Act
@@ -162,6 +209,86 @@ namespace NMapper.Tests
             personDtos.Should().HaveCount(personsCount);
             personDtos.All(p => p.Name?.StartsWith("Person") == true).Should().BeTrue();
             personDtos.All(p => p.Id > 0).Should().BeTrue();
+        }
+
+        [Fact]
+        public void ShouldMapCollections_ArrayToArray_ThrowsMissingMappingException()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new PersonMapping()
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            var country = new Country
+            {
+                Id = 1,
+                Name = "Canada",
+                NativeName = "Canada",
+            };
+            var personsCount = 3;
+            var persons = Enumerable.Range(1, personsCount)
+                .Select(i => new Person
+                {
+                    Id = i,
+                    Name = $"Person {i}",
+                    CountryId = country.Id,
+                    Country = country,
+                    Address = new Address
+                    {
+                        Street = "123 Main St",
+                        Place = "Toronto",
+                        ZipCode = 12345
+                    }
+                }).ToArray();
+
+            // Act
+            Action action = () => mapper.Map<PersonDto[]>(persons);
+
+            // Assert
+            var aggregateException = action.Should().Throw<AggregateException>().Which;
+            aggregateException.InnerExceptions.Should().HaveCount(2);
+            aggregateException.InnerExceptions.All(ex => ex is MissingMappingException).Should().BeTrue();
+            aggregateException.InnerExceptions[0].Message.Should().Contain("No mapping registered for Address to String");
+            aggregateException.InnerExceptions[1].Message.Should().Contain("No mapping registered for Country to CountryDto");
+        }
+
+        [Fact]
+        public void ShouldMapCollections_ArrayToArray_ThrowsAggregateException()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new PersonNestedExceptionsMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            var country = new Country
+            {
+                Id = 1,
+                Name = "Canada",
+                NativeName = "Canada",
+            };
+            var personsCount = 3;
+            var persons = Enumerable.Range(1, personsCount)
+                .Select(i => new Person
+                {
+                    Id = i,
+                    Name = $"Person {i}",
+                    CountryId = country.Id,
+                    Country = country,
+                }).ToArray();
+
+            // Act
+            Action action = () => mapper.Map<double?[]>(persons);
+
+            // Assert
+            var aggregateException = action.Should().Throw<AggregateException>().Which;
+            aggregateException.InnerExceptions.Should().HaveCount(2);
+            aggregateException.InnerExceptions.All(ex => ex is MissingMappingException).Should().BeTrue();
+            aggregateException.InnerExceptions[0].Message.Should().Contain("No mapping registered for Person to Int32");
+            aggregateException.InnerExceptions[1].Message.Should().Contain("No mapping registered for Person to Single");
         }
 
         [Fact]
@@ -218,6 +345,249 @@ namespace NMapper.Tests
 
             // Assert
             targetEnum.Should().Be(TargetEnum.Second);
+        }
+
+        [Fact]
+        public void ShouldMapNullableDecimalToDouble_NaN()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new NullableDecimalToDoubleMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            decimal? decimalValue = null;
+
+            // Act
+            var doubleValue = mapper.Map<decimal?, double>(decimalValue);
+
+            // Assert
+            doubleValue.Should().Be(double.NaN);
+        }
+
+        [Fact]
+        public void ShouldMapNullableDecimalToDouble_Value()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new NullableDecimalToDoubleMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            decimal? decimalValue = 10m;
+
+            // Act
+            var doubleValue = mapper.Map<decimal?, double>(decimalValue);
+
+            // Assert
+            doubleValue.Should().Be(10d);
+        }
+
+        [Fact]
+        public void ShouldMap_ThrowsMappingException()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new PersonNotImplementedMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            var person = new Person
+            {
+                Id = 1,
+                Name = "John Doe",
+            };
+
+            // Act
+            Action action = () => mapper.Map<string>(person);
+
+            // Assert
+            action.Should().Throw<MappingException>().WithInnerException<NotImplementedException>();
+        }
+
+        [Fact]
+        public void ShouldMapWithContext_ThrowsMappingException()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new PersonNestedExceptionsMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            var person = new Person
+            {
+                Id = 1,
+                Name = "John Doe",
+            };
+
+            // Act
+            Action action = () => mapper.Map<double?>(person);
+
+            // Assert
+            var aggregateException = action.Should().Throw<AggregateException>().Which;
+            aggregateException.InnerExceptions.Should().HaveCount(2);
+            aggregateException.InnerExceptions.All(ex => ex is MissingMappingException).Should().BeTrue();
+            aggregateException.InnerExceptions[0].Message.Should().Contain("No mapping registered for Person to Int32");
+            aggregateException.InnerExceptions[1].Message.Should().Contain("No mapping registered for Person to Single");
+        }
+
+        [Fact(Skip = "Run manually")]
+        public void ShouldMap_WithRecursion_ThrowsStackoverflowException()
+        {
+            // Arrange
+            var mapperOptions = new MapperOptions
+            {
+                EnableRecursionHandling = false,
+                Mappings = new IMapping[]
+                {
+                    new VenueMapping(),
+                    new WaterAreaMapping(),
+                }
+            };
+
+            IMapper mapper = new Mapper(mapperOptions);
+
+            var venue = Venue.GetRecursiveVenueTestData();
+
+            // Act
+            mapper.Map<VenueDto>(venue);
+
+            // Assert
+            // Debug and observe the StackOverflowException
+        }
+
+        [Fact]
+        public void ShouldMap_WithRecursion()
+        {
+            // Arrange
+            var mapperOptions = new MapperOptions
+            {
+                Mappings = new IMapping[]
+                {
+                    new VenueMapping(),
+                    new WaterAreaMapping(),
+                },
+                EnableRecursionHandling = true,
+            };
+
+            IMapper mapper = new Mapper(mapperOptions);
+
+            var venue = Venue.GetRecursiveVenueTestData();
+
+            // Act
+            var venueDto = mapper.Map<VenueDto>(venue);
+
+            // Assert
+            venueDto.Should().NotBeNull();
+            venueDto.Name.Should().Be("Lake");
+            venueDto.Areas.Should().HaveCount(1);
+
+            var waterAreaDto = venueDto.Areas[0];
+            waterAreaDto.Name.Should().Be("North");
+
+            var nestedVenueDto = waterAreaDto.Venue;
+            nestedVenueDto.Should().NotBeNull();
+            nestedVenueDto.Name.Should().Be("Lake");
+            nestedVenueDto.Areas.Should().HaveCount(1);
+        }
+
+        [Fact]
+        public void ShouldMap_WithRecursion_MapOptions()
+        {
+            // Arrange
+            var mapperOptions = new MapperOptions
+            {
+                Mappings = new IMapping[]
+                {
+                    new VenueMapping(),
+                    new WaterAreaMapping(),
+                },
+                EnableRecursionHandling = false,
+            };
+
+            IMapper mapper = new Mapper(mapperOptions);
+
+            var venue = Venue.GetRecursiveVenueTestData();
+
+            // Act
+            var venueDto = mapper.Map<VenueDto>(venue, o => o.EnableRecursionHandling = true);
+
+            // Assert
+            venueDto.Should().NotBeNull();
+            venueDto.Name.Should().Be("Lake");
+            venueDto.Areas.Should().HaveCount(1);
+
+            var waterAreaDto = venueDto.Areas[0];
+            waterAreaDto.Name.Should().Be("North");
+
+            var nestedVenueDto = waterAreaDto.Venue;
+            nestedVenueDto.Should().NotBeNull();
+            nestedVenueDto.Name.Should().Be("Lake");
+            nestedVenueDto.Areas.Should().HaveCount(1);
+        }
+
+        [Fact]
+        public void ShouldMap_WithRecursion_MaxDepth()
+        {
+            // Arrange
+            var mapperOptions = new MapperOptions
+            {
+                Mappings = new IMapping[]
+                {
+                    new VenueMapping(),
+                    new WaterAreaMapping(),
+                },
+                EnableRecursionHandling = true,
+                MaxDepth = 2,
+            };
+
+            IMapper mapper = new Mapper(mapperOptions);
+            var venue = Venue.GetRecursiveVenueTestData();
+
+            // Act
+            var venueDto = mapper.Map<VenueDto>(venue);
+
+            // Assert
+            venueDto.Should().NotBeNull();
+            venueDto.Name.Should().Be("Lake");
+            venueDto.Areas.Should().HaveCount(1);
+
+            var waterAreaDto = venueDto.Areas[0];
+            waterAreaDto.Name.Should().Be("North");
+
+            var nestedVenueDto = waterAreaDto.Venue;
+            nestedVenueDto.Should().BeNull();
+        }
+
+        [Fact]
+        public void ShouldMap_WithRecursion_MaxDepth_ThrowsException()
+        {
+            // Arrange
+            var mapperOptions = new MapperOptions
+            {
+                Mappings = new IMapping[]
+                {
+                    new VenueMapping(),
+                    new WaterAreaMapping(),
+                },
+                EnableRecursionHandling = true,
+                MaxDepth = 2,
+                ThrowIfMaxDepthExceeded = true
+            };
+
+            IMapper mapper = new Mapper(mapperOptions);
+            var venue = Venue.GetRecursiveVenueTestData();
+
+            // Act
+            Action action = () => mapper.Map<VenueDto>(venue);
+
+            // Assert
+            var ex = action.Should().Throw<MappingException>().WithInnerException<InvalidOperationException>().Which;
+            ex.Message.Should().Contain("Maximum recursion depth exceeded");
         }
     }
 }

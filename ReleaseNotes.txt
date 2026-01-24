@@ -1,2 +1,5 @@
+2.0
+- New mapper IMapper and mapping interfaces IMapping<TSource, TTarget>.
+
 1.0
-- Initial release.
+- Initial release by nabinked.
