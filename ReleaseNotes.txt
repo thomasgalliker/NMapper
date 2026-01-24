@@ -1,5 +1,6 @@
 2.0
 - New mapper IMapper and mapping interfaces IMapping<TSource, TTarget>.
+- Handle circular references during mapping.
 
 1.0
 - Initial release by nabinked.
