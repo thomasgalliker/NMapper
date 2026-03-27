@@ -1,22 +1,25 @@
-﻿# NMapper
-[![Version](https://img.shields.io/nuget/v/NMapper.svg)](https://www.nuget.org/packages/NMapper) [![Downloads](https://img.shields.io/nuget/dt/NMapper.svg)](https://www.nuget.org/packages/NMapper) [![Buy Me a Coffee](https://img.shields.io/badge/support-buy%20me%20a%20coffee-FFDD00)](https://buymeacoffee.com/thomasgalliker)
+# NMapper
+[![Version](https://img.shields.io/nuget/v/NMapper.svg)](https://www.nuget.org/packages/NMapper)
+[![Downloads](https://img.shields.io/nuget/dt/NMapper.svg)](https://www.nuget.org/packages/NMapper)
+[![Buy Me a Coffee](https://img.shields.io/badge/support-buy%20me%20a%20coffee-FFDD00)](https://buymeacoffee.com/thomasgalliker)
 
-NMapper is a lightweight, explicit object mapping library for .NET. It favours clear, testable mapping code over configuration and conventions.
+NMapper is a lightweight, explicit object mapping library for .NET.
 
-## Key Features
-- Explicit mapping classes written in plain C#
-- One-way and two-way mappings.
-- Supports nested mappings.
-- Automatic mapping of collections and arrays.
-- Clear compile-time errors instead of runtime surprises.
-- No conventions, no reflection-based property mapping, no magic.
-- Designed to use with dependency injection (Microsoft.Extensions.DependencyInjection).
+It favors simple, testable C# mapping code over conventions, profiles, and hidden runtime behavior.
 
-## Philosophy
-Mapping is application logic. NMapper treats mappings as first-class code rather than configuration.
-Every mapping is explicit, discoverable, and refactor-safe.
+## Why NMapper?
 
-NMapper intentionally avoids automatic property matching and hidden behavior in favor of clarity, control, and debuggability.
+With NMapper, mappings are just code:
+
+- Explicit mapping classes in plain C#
+- Refactor-safe and easy to debug
+- Nested mappings through `IMappingContext`
+- Automatic collection and array mapping
+- Dependency injection support
+- No convention-based property matching
+- No "magic" configuration model
+
+If you want mapping logic to stay visible, reviewable, and easy to test, NMapper is designed for that.
 
 ## Download and Install NMapper
 This library is available on NuGet: https://www.nuget.org/packages/NMapper/
@@ -26,145 +29,352 @@ Use the following command to install NMapper using the NuGet Package Manager Con
 PM> Install-Package NMapper
 ```
 
-You can use this library in any .NET project which is compatible to .NET Standard 2.0 and higher.
+Or with the .NET CLI:
 
-## API Usage
-### Define a Mapping
-A mapping is a concrete specificiation of a source-to-target type conversion. Mappings are defined as simple C# classes by implementing `IMapping<TSource, TTarget>`.
+```bash
+dotnet add package NMapper
+```
+
+NMapper supports .NET Standard 2.0 and higher.
+
+## Quick Start
+
+### 1. Define your models
 
 ```csharp
- public class PersonMapping :
-        IMapping<Person, PersonDto>,
-        IMapping<PersonDto, Person>
+public class Person
 {
-    public PersonDto Map(Person person) => new PersonDto
-    {
-        Id = person.Id,
-        Name = person.Name,
-    };
+    public int Id { get; set; }
+    public string? Name { get; set; }
+}
 
-    public Person Map(PersonDto personDto) => new Person
-    {
-        Id = personDto.Id,
-        Name = personDto.Name,
-    };
+public class PersonDto
+{
+    public int Id { get; set; }
+    public string? Name { get; set; }
 }
 ```
 
-### Nested Mappings
-If a mapping needs to delegate to other mappings, implement `IMappingWithContext<TSource, TTarget>`. This interface gives you the extra parameter `IMappingContext` which allows to run further mappings. 
+### 2. Create a mapping
+
+Implement `IMapping<TSource, TTarget>`:
 
 ```csharp
-public class OrderMapping : IMappingWithContext<Order, OrderDto>
+using NMapper;
+
+public sealed class PersonMapping : IMapping<Person, PersonDto>
 {
-    public OrderDto Map(Order source, IMappingContext context) => new()
+    public PersonDto Map(Person source)
     {
-        Id = source.Id,
-        Customer = context.Map<CustomerDto>(source.Customer)
-    };
+        return new PersonDto
+        {
+            Id = source.Id,
+            Name = source.Name,
+        };
+    }
 }
 ```
 
-### Register Mappings
-Each `Mapper` instance can be configured with 1-N mappings.
-
-#### Register Mappings manually
-The constructor of `Mapper` allows to specify mappings directly.
+### 3. Create a mapper and map an object
 
 ```csharp
-var mappings = new IMapping[]
+using NMapper;
+
+var mapper = new Mapper(new PersonMapping());
+
+var person = new Person
 {
-    new PersonMapping(),
-    new CountryMapping(),
+    Id = 1,
+    Name = "John Doe",
 };
-IMapper mapper = new Mapper(mappings);
+
+var dto = mapper.Map<PersonDto>(person);
+
+// dto.Id == 1
+// dto.Name == "John Doe"
 ```
 
-#### Register Mappings via Dependency Injection
-Mappings can be registered via dependency injection.
-Use the `AddMapping` extension methods on your DI service collection.
-From there you have multiple ways to register/scan mappings:
+That is the core idea of NMapper:
+you write the mapping once as a normal C# class, register it, and call `Map<TTarget>()`.
+
+## Two-Way Mapping
+
+If you want mapping in both directions, implement both interfaces on the same class:
 
 ```csharp
-services.AddMapping(o =>
-{
-    // Register all mappings from a specific assembly:
-    o.Mappings.ScanAssembly(typeof(Person).Assembly);
+using NMapper;
 
-    // Register mappings manually
-    o.Mappings.Add(new IMapping[] { new PersonMapping(), new VenueMapping() });
+public sealed class PersonMapping :
+    IMapping<Person, PersonDto>,
+    IMapping<PersonDto, Person>
+{
+    public PersonDto Map(Person source)
+    {
+        return new PersonDto
+        {
+            Id = source.Id,
+            Name = source.Name,
+        };
+    }
+
+    public Person Map(PersonDto source)
+    {
+        return new Person
+        {
+            Id = source.Id,
+            Name = source.Name,
+        };
+    }
+}
+```
+
+Usage:
+
+```csharp
+var mapper = new Mapper(new PersonMapping());
+
+var dto = mapper.Map<PersonDto>(person);
+var person2 = mapper.Map<Person>(dto);
+```
+
+## Nested Mappings
+
+If a mapping needs to call other mappings, implement `IMappingWithContext<TSource, TTarget>`.
+
+```csharp
+public class Country
+{
+    public int Id { get; set; }
+    public string? Name { get; set; }
+}
+
+public class CountryDto
+{
+    public int Id { get; set; }
+    public string? Name { get; set; }
+}
+
+public class Person
+{
+    public int Id { get; set; }
+    public string? Name { get; set; }
+    public Country? Country { get; set; }
+}
+
+public class PersonDto
+{
+    public int Id { get; set; }
+    public string? Name { get; set; }
+    public CountryDto? Country { get; set; }
+}
+
+public sealed class CountryMapping : IMapping<Country, CountryDto>
+{
+    public CountryDto Map(Country source)
+    {
+        return new CountryDto
+        {
+            Id = source.Id,
+            Name = source.Name,
+        };
+    }
+}
+
+public sealed class PersonMapping : IMappingWithContext<Person, PersonDto>
+{
+    public PersonDto Map(Person source, IMappingContext context)
+    {
+        return new PersonDto
+        {
+            Id = source.Id,
+            Name = source.Name,
+            Country = context.Map<CountryDto?>(source.Country),
+        };
+    }
+}
+```
+
+Register both mappings:
+
+```csharp
+var mapper = new Mapper(
+    new CountryMapping(),
+    new PersonMapping());
+```
+
+Now `Person -> PersonDto` can delegate `Country -> CountryDto` to the mapper.
+
+## Collections and Arrays
+
+Collections and arrays are mapped automatically as long as an element mapping exists.
+
+```csharp
+var persons = new[]
+{
+    new Person { Id = 1, Name = "John Doe" },
+    new Person { Id = 2, Name = "Jane Doe" },
+};
+
+var mapper = new Mapper(new PersonMapping());
+
+PersonDto[] personDtos = mapper.Map<PersonDto[]>(persons);
+IEnumerable<PersonDto>? personDtoEnumerable = mapper.Map<IEnumerable<PersonDto>>(persons);
+```
+
+You only define the item mapping once. NMapper handles the collection conversion.
+
+## Registration Options
+
+### Register mappings directly
+
+```csharp
+var mapper = new Mapper(
+    new PersonMapping(),
+    new CountryMapping());
+```
+
+You can also register mappings after construction:
+
+```csharp
+IMapper mapper = new Mapper();
+
+mapper.RegisterMapping(new PersonMapping());
+mapper.RegisterMapping(new CountryMapping());
+```
+
+Or register a mapping delegate:
+
+```csharp
+IMapper mapper = new Mapper();
+
+mapper.RegisterMapping<Person, PersonDto>(source => new PersonDto
+{
+    Id = source.Id,
+    Name = source.Name,
 });
 ```
 
-### Perform Mappings
-Create a new instance of `Mapper` or inject `IMapper` via dependency injection and use it to perform mappings.
+### Register with dependency injection
+
+NMapper integrates with `Microsoft.Extensions.DependencyInjection`.
 
 ```csharp
-var personDto = mapper.Map<PersonDto>(person);
-```
+using Microsoft.Extensions.DependencyInjection;
+using NMapper;
 
-### Mapping Collections and Arrays
-Collections and arrays are mapped automatically as long as an element mapping exists.
-```csharp
-var personDtos = mapper.Map<IEnumerable<PersonDto>>(persons);
-```
+var services = new ServiceCollection();
 
-The concrete collection instances (arrays and lists) are created using an `ICollectionFactory`.
-By default, NMapper uses an internal FastCollectionFactory, which is optimized for performance. You can override this behavior via `MapperOptions.CollectionFactory`.
-
-### Recursion Handling (Circular Object Graphs)
-By default, NMapper does not track object references during mapping. This keeps the mapper fast and allocation-free for simple object graphs.
-For object graphs that contain circular references (e.g. parent-child relationships with back-references), recursion handling can be enabled.
-
-```csharp
-var mapperOptions = new MapperOptions
+services.AddMapping(options =>
 {
-    EnableRecursionHandling = true
-};
+    options.Mappings.ScanAssembly(typeof(PersonMapping).Assembly);
+});
+
+var serviceProvider = services.BuildServiceProvider();
+var mapper = serviceProvider.GetRequiredService<IMapper>();
 ```
 
-When enabled, NMapper tracks previously mapped source objects and reuses them internally to avoid infinite recursion and stack overflows.
-
-> [!WARNING]
-> Enabling recursion handling has a measurable runtime cost and should only be enabled when required.
-
-#### Maximum Depth
-In addition to reference tracking, a maximum traversal depth can be configured:
+You can also add mappings manually:
 
 ```csharp
-var mapperOptions = new MapperOptions
+services.AddMapping(options =>
+{
+    options.Mappings.Add(new PersonMapping(), new CountryMapping());
+});
+```
+
+## Per-Call Options
+
+You can override mapping behavior per call:
+
+```csharp
+var dto = mapper.Map<PersonDto>(person, options =>
+{
+    options.EnableRecursionHandling = true;
+});
+```
+
+This is useful when only specific mapping operations need additional safeguards.
+
+## Recursion Handling
+
+By default, NMapper does not track references while mapping.
+That keeps mapping fast and allocation-light for simple object graphs.
+
+If you map circular object graphs, enable recursion handling:
+
+```csharp
+var mapper = new Mapper(new MapperOptions
+{
+    EnableRecursionHandling = true,
+    Mappings = new IMapping[]
+    {
+        new PersonMapping(),
+        new CountryMapping(),
+    }
+});
+```
+
+You can also configure a maximum depth:
+
+```csharp
+var mapper = new Mapper(new MapperOptions
 {
     EnableRecursionHandling = true,
     MaxDepth = 10,
-    ThrowIfMaxDepthExceeded = true
-};
+    ThrowIfMaxDepthExceeded = true,
+    Mappings = new IMapping[]
+    {
+        new PersonMapping(),
+        new CountryMapping(),
+    }
+});
 ```
 
-`MaxDepth = 0` disables depth checking (default).
-When `ThrowIfMaxDepthExceeded` is enabled, the mapper throws a `MappingException` once the depth limit is exceeded.
+> [!WARNING]
+> Recursion handling has a runtime cost and should only be enabled when needed.
 
-### Per-Call Mapping Options
-Some options are also available on a per-call basis.
-This allows you to enable recursion handling for specific mapping calls only while using the performance advantage for the rest of the mappings.
+## Exceptions
+
+NMapper throws explicit exceptions when something is missing or invalid:
+
+| Exception | Meaning |
+|---|---|
+| `DuplicateMappingException` | More than one mapping was registered for the same source and target type. |
+| `MissingMappingException` | No mapping exists for the requested source and target type. |
+| `MappingException` | A mapping failed during execution. |
+| `AggregateException` | Multiple nested mappings failed during one operation. |
+
+Example:
 
 ```csharp
-var venueDto = mapper.Map<VenueDto>(venue, o => o.EnableRecursionHandling = true);
+try
+{
+    var dto = mapper.Map<PersonDto>(person);
+}
+catch (MissingMappingException ex)
+{
+    Console.WriteLine(ex.Message);
+}
 ```
 
-### Exceptions
-NMapper uses explicit, strongly typed exceptions to make mapping errors easy to diagnose. All exceptions are thrown at runtime and indicate configuration or mapping logic errors.
+## Design Philosophy
 
-| Exception                     | Description |
-|-------------------------------|-------------|
-| **DuplicateMappingException** | Thrown when more than one mapping is registered for the same source and target type. Each source → target pair must be unique. |
-| **MissingMappingException**   | Thrown when no mapping exists for the requested source and target type and no built-in primitive conversion applies. |
-| **MappingException**          | Thrown when an error occurs during execution of a mapping. This exception wraps the original exception and adds source type, target type, and mapping type information. |
-| **AggregateException**        | When multiple nested mappings fail during a single mapping operation, NMapper may throw an `AggregateException` containing one or more of the exceptions listed above. This behavior allows all mapping errors to be reported at once instead of failing on the first error. |
-| **StackOverflowException**    | Detected by the .NET runtime. Typically happens when a parent-child object graph with back-references is used while recursion handling is disabled. Set `EnableRecursionHandling = true` and try again. |
+NMapper treats mapping as application code, not configuration.
 
+That means:
+
+- Mapping behavior is explicit
+- The implementation is visible in your codebase
+- Debugging happens in normal C# code
+- Refactoring works naturally
+- Complex mappings stay maintainable because composition is explicit
+
+If a mapping is important enough to exist, it is important enough to be code you can read.
 
 ## Thank You
-A big thank you to all the people who have contributed to this project!
-If you find a bug or want to propose a new feature, feel free to open an issue on GitHub.
+
+Thanks to everyone who has contributed to this project.
+
+If you find a bug or want to propose a feature, feel free to open an issue on GitHub.
 
 We'd also like to thank [nabinked](https://www.nuget.org/profiles/nabinked) for leaving us the project name and working title NMapper.
