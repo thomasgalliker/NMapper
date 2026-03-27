@@ -1,32 +1,23 @@
 ﻿using System.Collections;
+using System.Collections.Concurrent;
 using System.Linq.Expressions;
 
 namespace NMapper.Internals
 {
     internal class FastCollectionFactory : ICollectionFactory
     {
-        private readonly Dictionary<Type, Func<int, Array>> arrayFactories = new();
-        private readonly Dictionary<Type, Func<IList>> listFactories = new();
+        private readonly ConcurrentDictionary<Type, Func<int, Array>> arrayFactories = new();
+        private readonly ConcurrentDictionary<Type, Func<IList>> listFactories = new();
 
         public Array CreateArray(Type elementType, int length)
         {
-            if (!this.arrayFactories.TryGetValue(elementType, out var factory))
-            {
-                factory = this.CreateArrayFactory(elementType);
-                this.arrayFactories[elementType] = factory;
-            }
-
+            var factory = this.arrayFactories.GetOrAdd(elementType, this.CreateArrayFactory);
             return factory(length);
         }
 
         public IList CreateList(Type elementType)
         {
-            if (!this.listFactories.TryGetValue(elementType, out var factory))
-            {
-                factory = this.CreateListFactory(elementType);
-                this.listFactories[elementType] = factory;
-            }
-
+            var factory = this.listFactories.GetOrAdd(elementType, this.CreateListFactory);
             return factory();
         }
 
