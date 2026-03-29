@@ -147,7 +147,7 @@ namespace NMapper
             {
                 return new MappingResult(default(TTarget), null, context);
             }
-            
+
             var typePair = new TypePair(sourceType, typeof(TTarget));
 
             // Recursion detection
@@ -288,7 +288,6 @@ namespace NMapper
 
             throw new NotSupportedException();
         }
-
 
         private MappingResult MapEnumerable<TTarget>(object? source, TypePair elementTypePair, MappingContext context)
         {
