@@ -300,22 +300,23 @@ namespace NMapper
                 return new MappingResult(default(TTarget), ex, context);
             }
 
-            var list = this.collectionFactory.CreateList(elementTypePair.TargetType);
-            context.StoreMappedObject(source, list);
+            int? capacity = source is ICollection collection ? collection.Count : null;
+            var targetCollection = this.collectionFactory.CreateCollection(typeof(TTarget), elementTypePair.TargetType, capacity);
+            context.StoreMappedObject(source, targetCollection.Collection);
 
-            if (source is IEnumerable enumerable)
+            if (source is IEnumerable targetEnumerable)
             {
-                foreach (var item in enumerable)
+                foreach (var item in targetEnumerable)
                 {
                     var mappingResult = elementMap.Invoke(item, context);
                     if (mappingResult.Success)
                     {
-                        list.Add(mappingResult.Result);
+                        targetCollection.Add(mappingResult.Result);
                     }
                 }
             }
 
-            return new MappingResult(list, null, context);
+            return new MappingResult(targetCollection.Collection, null, context);
         }
 
         private static bool TryGetEnumerableElementType(Type type, out Type elementType)

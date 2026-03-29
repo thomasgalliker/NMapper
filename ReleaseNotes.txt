@@ -1,3 +1,7 @@
+2.1
+- Added support for mapping into more collection targets, including sets and concrete collection types.
+- Improved FastCollectionFactory for thread safety and lower-allocation collection mapping.
+
 2.0
 - New mapper IMapper and mapping interfaces IMapping<TSource, TTarget>.
 - Handle circular references during mapping.

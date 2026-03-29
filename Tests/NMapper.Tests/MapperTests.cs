@@ -1,4 +1,5 @@
-﻿using FluentAssertions;
+﻿using System.Collections.ObjectModel;
+using FluentAssertions;
 using NMapper.TestData;
 using NMapper.TestData.Mappings;
 using Xunit;
@@ -326,6 +327,114 @@ namespace NMapper.Tests
             personDtos.Should().HaveCount(personsCount);
             personDtos.All(p => p.Name?.StartsWith("Person") == true).Should().BeTrue();
             personDtos.All(p => p.Id > 0).Should().BeTrue();
+        }
+
+        [Fact]
+        public void ShouldMapCollections_ListToHashSet()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new CountryMapping(),
+                new PersonMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            var country = new Country
+            {
+                Id = 1,
+                Name = "Canada",
+                NativeName = "Canada",
+            };
+            var persons = Enumerable.Range(1, 3)
+                .Select(i => new Person
+                {
+                    Id = i,
+                    Name = $"Person {i}",
+                    CountryId = country.Id,
+                    Country = country,
+                })
+                .ToList();
+
+            // Act
+            var personDtos = mapper.Map<HashSet<PersonDto>>(persons);
+
+            // Assert
+            personDtos.Should().NotBeNull();
+            personDtos.Should().HaveCount(3);
+            personDtos.All(p => p.Name?.StartsWith("Person") == true).Should().BeTrue();
+        }
+
+        [Fact]
+        public void ShouldMapCollections_ArrayToCollection()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new CountryMapping(),
+                new PersonMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            var country = new Country
+            {
+                Id = 1,
+                Name = "Canada",
+                NativeName = "Canada",
+            };
+            var persons = Enumerable.Range(1, 3)
+                .Select(i => new Person
+                {
+                    Id = i,
+                    Name = $"Person {i}",
+                    CountryId = country.Id,
+                    Country = country,
+                })
+                .ToArray();
+
+            // Act
+            var personDtos = mapper.Map<Collection<PersonDto>>(persons);
+
+            // Assert
+            personDtos.Should().NotBeNull();
+            personDtos.Should().HaveCount(3);
+            personDtos.All(p => p.Name?.StartsWith("Person") == true).Should().BeTrue();
+        }
+
+        [Fact]
+        public void ShouldMapCollections_ListToISet()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new CountryMapping(),
+                new PersonMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            var country = new Country
+            {
+                Id = 1,
+                Name = "Canada",
+                NativeName = "Canada",
+            };
+            var persons = Enumerable.Range(1, 3)
+                .Select(i => new Person
+                {
+                    Id = i,
+                    Name = $"Person {i}",
+                    CountryId = country.Id,
+                    Country = country,
+                })
+                .ToList();
+
+            // Act
+            var personDtos = mapper.Map<ISet<PersonDto>>(persons);
+
+            // Assert
+            personDtos.Should().NotBeNull();
+            personDtos.Should().HaveCount(3);
+            personDtos.All(p => p.Name?.StartsWith("Person") == true).Should().BeTrue();
         }
 
         [Fact]
