@@ -131,14 +131,34 @@ namespace NMapper
         [return: NotNullIfNotNull(nameof(source))]
         public TTarget? Map<TSource, TTarget>(TSource? source, Action<MapOptions>? options)
         {
-            var sourceType = typeof(TSource);
-
+            var sourceType = GetSourceType(source);
             var context = this.CreateMappingContext(options);
             var result = this.MapInternal<TTarget>(source, sourceType, context);
 
             context.ThrowIfAnyException();
 
             return (TTarget?)result.Result;
+        }
+
+        private static Type? GetSourceType<TSource>(TSource? source)
+        {
+            var declaredSourceType = typeof(TSource);
+            var runtimeSourceType = source?.GetType();
+            var sourceType = runtimeSourceType;
+
+            if (runtimeSourceType == null)
+            {
+                sourceType = declaredSourceType;
+            }
+            else if (declaredSourceType != runtimeSourceType &&
+                     declaredSourceType != typeof(object) &&
+                     !declaredSourceType.IsInterface &&
+                     (declaredSourceType.IsValueType || declaredSourceType.IsSealed))
+            {
+                sourceType = declaredSourceType;
+            }
+
+            return sourceType;
         }
 
         internal MappingResult MapInternal<TTarget>(object? source, Type? sourceType, MappingContext context)

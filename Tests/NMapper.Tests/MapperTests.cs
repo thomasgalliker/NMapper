@@ -175,6 +175,57 @@ namespace NMapper.Tests
         }
 
         [Fact]
+        public void ShouldMap_GenericOverload_UsesRuntimeTypeForDerivedSource()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new PersonMapping(),
+                new EmployeeMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            Person person = new Employee
+            {
+                Name = "Jane Doe",
+                EmployeeNumber = "E-100",
+            };
+
+            // Act
+            var personDto = mapper.Map<Person, PersonDto>(person);
+
+            // Assert
+            personDto.Should().NotBeNull();
+            personDto.Name.Should().Be("Jane Doe");
+            personDto.Address.Should().Contain("E-100");
+        }
+
+        [Fact]
+        public void ShouldMap_GenericOverload_UsesRuntimeTypeForInterfaceSource()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new EmployeeMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            IIdentifiable employee = new Employee
+            {
+                Name = "John Doe",
+                EmployeeNumber = "E-200",
+            };
+
+            // Act
+            var personDto = mapper.Map<IIdentifiable, PersonDto>(employee);
+
+            // Assert
+            personDto.Should().NotBeNull();
+            personDto.Name.Should().Be("John Doe");
+            personDto.Address.Should().Contain("E-200");
+        }
+
+        [Fact]
         public void ShouldMapCollections_ArrayToArray()
         {
             // Arrange

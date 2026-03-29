@@ -219,9 +219,23 @@ var mapper = new Mapper(new PersonMapping());
 
 PersonDto[] personDtos = mapper.Map<PersonDto[]>(persons);
 IEnumerable<PersonDto>? personDtoEnumerable = mapper.Map<IEnumerable<PersonDto>>(persons);
+HashSet<PersonDto>? personDtoSet = mapper.Map<HashSet<PersonDto>>(persons);
 ```
 
 You only define the item mapping once. NMapper handles the collection conversion.
+Common targets such as arrays, `List<T>`, `HashSet<T>`, `Collection<T>`, `IEnumerable<T>`, `ICollection<T>`, `IList<T>`, `IReadOnlyCollection<T>`, `IReadOnlyList<T>`, and `ISet<T>` are supported.
+
+## Polymorphic Sources
+
+The generic overload `Map<TSource, TTarget>()` respects the runtime type of reference-type inputs.
+
+```csharp
+Person person = new Employee { Name = "Jane Doe" };
+
+PersonDto dto = mapper.Map<Person, PersonDto>(person);
+```
+
+If an `Employee -> PersonDto` mapping is registered, NMapper will use it for the example above.
 
 ## Registration Options
 

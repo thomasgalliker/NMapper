@@ -3,7 +3,7 @@
 namespace NMapper.TestData
 {
     [DebuggerDisplay("{this.Name}", Type = "Person")]
-    public class Person
+    public class Person : IIdentifiable
     {
         public int Id { get; set; }
 
