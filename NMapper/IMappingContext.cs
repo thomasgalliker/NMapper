@@ -1,6 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-
-namespace NMapper
+﻿namespace NMapper
 {
     public interface IMappingContext
     {
