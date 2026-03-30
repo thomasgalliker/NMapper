@@ -1,7 +1,7 @@
 ﻿using FluentAssertions;
 using Xunit;
 
-namespace NMapper.Tests.Internals
+namespace NMapper.Tests
 {
     public class TypePairTests
     {
@@ -10,14 +10,14 @@ namespace NMapper.Tests.Internals
         {
             // Arrange
             var sourceType = typeof(string);
-            var TargetType = typeof(int);
+            var targetType = typeof(int);
 
             // Act
-            var typePair = new TypePair(sourceType, TargetType);
+            var typePair = new TypePair(sourceType, targetType);
 
             // Assert
             typePair.SourceType.Should().Be(sourceType);
-            typePair.TargetType.Should().Be(TargetType);
+            typePair.TargetType.Should().Be(targetType);
         }
 
         [Fact]
