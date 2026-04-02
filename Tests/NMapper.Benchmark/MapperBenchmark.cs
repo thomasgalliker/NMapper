@@ -1,20 +1,21 @@
 ﻿using AutoMapper;
-using Microsoft.Extensions.Logging.Abstractions;
-using NMapper;
 using BenchmarkDotNet.Attributes;
+using Microsoft.Extensions.Logging.Abstractions;
 using Nelibur.ObjectMapper;
+using NMapper;
 using NMapper.TestData;
+using System.Linq;
 
 namespace Benchmark
 {
     public class MapperBenchmark
     {
-        private readonly SourceWithCollections source = SourceWithCollectionsHelper.CreateSource(100);
-        //private readonly Person[] persons = Enumerable.Range(0, 100).Select(i => new Person { Id = i }).ToArray();
+        private readonly SourceWithCollections collectionSource = SourceWithCollectionsHelper.CreateSource(100);
+        private readonly Person personSource = BenchmarkTestData.CreatePerson();
+        private readonly decimal? nullableDecimalSource = 10m;
         private NMapper.IMapper mapper = null!;
         private AutoMapper.IMapper autoMapper = null!;
         private const int Iterations = 1;
-
 
         public MapperBenchmark()
         {
@@ -27,9 +28,6 @@ namespace Benchmark
         {
             TinyMapper.Bind<SourceWithCollections, TargetWithCollections>();
             TinyMapper.Bind<Item, ItemDto>();
-            //TinyMapper.Bind<Person, PersonDto>();
-            //TinyMapper.Bind<Person[], PersonDto[]>();
-            //TinyMapper.Bind<Country, CountryDto>();
         }
 
         private void InitAutoMapper()
@@ -38,8 +36,10 @@ namespace Benchmark
             {
                 x.CreateMap<SourceWithCollections, TargetWithCollections>();
                 x.CreateMap<Item, ItemDto>();
-                //x.CreateMap<Person, PersonDto>();
-                //x.CreateMap<Country, CountryDto>();
+                x.CreateMap<Address, string?>().ConvertUsing(source => source.Place);
+                x.CreateMap<Country, CountryDto>();
+                x.CreateMap<Person, PersonDto>();
+                x.CreateMap<decimal?, double>().ConvertUsing(source => source.HasValue ? (double)source.Value : double.NaN);
             }, NullLoggerFactory.Instance);
 
             this.autoMapper = configuration.CreateMapper();
@@ -49,12 +49,14 @@ namespace Benchmark
         {
             var mappings = new IMapping[]
             {
-             new SourceToTargetCollectionsMapping(),
+                new CollectionBenchmarkMapping(),
                 new ItemMapping(),
-                new ListItemMapping(),
-                //new PersonMapping(),
-                //new CountryMapping()
+                new CountryMapping(),
+                new PersonMapping(),
+                new DelegateMapping<Address, string?>(source => source.Place),
+                new DelegateMapping<decimal?, double>(source => source.HasValue ? (double)source.Value : double.NaN),
             };
+
             this.mapper = new NMapper.Mapper(new MapperOptions { Mappings = mappings });
         }
 
@@ -63,8 +65,7 @@ namespace Benchmark
         {
             for (var i = 0; i < Iterations; i++)
             {
-                var result = TinyMapper.Map<TargetWithCollections>(this.source);
-                //var personDtos = TinyMapper.Map<PersonDto[]>(this.persons);
+                var result = TinyMapper.Map<TargetWithCollections>(this.collectionSource);
             }
         }
 
@@ -73,8 +74,7 @@ namespace Benchmark
         {
             for (var i = 0; i < Iterations; i++)
             {
-                var result = this.autoMapper.Map<TargetWithCollections>(this.source);
-                //var personDtos = this.autoMapper.Map<PersonDto[]>(this.persons);
+                var result = this.autoMapper.Map<TargetWithCollections>(this.collectionSource);
             }
         }
 
@@ -83,8 +83,7 @@ namespace Benchmark
         {
             for (var i = 0; i < Iterations; i++)
             {
-                var result = this.mapper.Map<TargetWithCollections>(this.source);
-                //var personDtos = this.mapper.Map<PersonDto[]>(this.persons);
+                var result = this.mapper.Map<TargetWithCollections>(this.collectionSource);
             }
         }
 
@@ -93,8 +92,61 @@ namespace Benchmark
         {
             for (var i = 0; i < Iterations; i++)
             {
-                var result = MapStatic(this.source);
-                //var personDtos = MapStatic(this.persons);
+                var result = MapStatic(this.collectionSource);
+            }
+        }
+
+        [Benchmark]
+        public void NestedMapping_AutoMapper()
+        {
+            for (var i = 0; i < Iterations; i++)
+            {
+                var result = this.autoMapper.Map<PersonDto>(this.personSource);
+            }
+        }
+
+        [Benchmark]
+        public void NestedMapping_NMapper()
+        {
+            for (var i = 0; i < Iterations; i++)
+            {
+                var result = this.mapper.Map<PersonDto>(this.personSource);
+            }
+        }
+
+        [Benchmark]
+        public void NestedMapping_StaticMapping()
+        {
+            for (var i = 0; i < Iterations; i++)
+            {
+                var result = MapStatic(this.personSource);
+            }
+        }
+
+        [Benchmark]
+        public void Conversion_AutoMapper()
+        {
+            for (var i = 0; i < Iterations; i++)
+            {
+                var result = this.autoMapper.Map<double>(this.nullableDecimalSource);
+            }
+        }
+
+        [Benchmark]
+        public void Conversion_NMapper()
+        {
+            for (var i = 0; i < Iterations; i++)
+            {
+                var result = this.mapper.Map<decimal?, double>(this.nullableDecimalSource);
+            }
+        }
+
+        [Benchmark]
+        public void Conversion_StaticMapping()
+        {
+            for (var i = 0; i < Iterations; i++)
+            {
+                var result = MapStatic(this.nullableDecimalSource);
             }
         }
 
@@ -103,16 +155,27 @@ namespace Benchmark
             var personDtos = new List<PersonDto>();
             foreach (var person in persons)
             {
-                personDtos.Add(new PersonDto
-                {
-                    Id = person.Id,
-                    Name = person.Name,
-                    Country = new CountryDto(),
-                    Address = person.Address?.Place,
-                });
+                personDtos.Add(MapStatic(person));
             }
 
             return personDtos.ToArray();
+        }
+
+        private static PersonDto MapStatic(Person source)
+        {
+            return new PersonDto
+            {
+                Id = source.Id,
+                Name = source.Name,
+                Country = source.Country == null
+                    ? null
+                    : new CountryDto
+                    {
+                        Id = source.Country.Id,
+                        Name = source.Country.Name,
+                    },
+                Address = source.Address?.Place,
+            };
         }
 
         private static TargetWithCollections MapStatic(SourceWithCollections source)
@@ -121,6 +184,11 @@ namespace Benchmark
             target.StringList.AddRange(source.StringList);
             source.ItemList.ForEach(x => target.ItemList.Add(HandwrittenMap(x)));
             return target;
+        }
+
+        private static double MapStatic(decimal? source)
+        {
+            return source.HasValue ? (double)source.Value : double.NaN;
         }
 
         private static ItemDto HandwrittenMap(Item source)
@@ -139,6 +207,42 @@ namespace Benchmark
             target.FirstName = source.FirstName;
             target.LastName = source.LastName;
             return target;
+        }
+
+        private sealed class CollectionBenchmarkMapping : IMappingWithContext<SourceWithCollections, TargetWithCollections>
+        {
+            public TargetWithCollections Map(SourceWithCollections source, IMappingContext context)
+            {
+                return new TargetWithCollections
+                {
+                    StringList = source.StringList.ToList(),
+                    ItemList = context.Map<List<ItemDto>>(source.ItemList),
+                };
+            }
+        }
+
+        private static class BenchmarkTestData
+        {
+            public static Person CreatePerson()
+            {
+                return new Person
+                {
+                    Id = 42,
+                    Name = "Ada Lovelace",
+                    Address = new Address
+                    {
+                        Street = "Analytical Engine Way",
+                        Place = "London",
+                        ZipCode = 1000,
+                    },
+                    Country = new Country
+                    {
+                        Id = 7,
+                        Name = "United Kingdom",
+                        NativeName = "United Kingdom",
+                    },
+                };
+            }
         }
     }
 }
