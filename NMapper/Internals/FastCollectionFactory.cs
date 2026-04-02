@@ -32,61 +32,11 @@ namespace NMapper.Internals
 
         private Func<int?, ObjectCollection> CreateCollectionFactory(Type collectionType, Type elementType)
         {
-            var concreteCollectionType = ResolveCollectionType(collectionType, elementType);
+            var concreteCollectionType = CollectionAdapterFactory.ResolveCollectionType(collectionType, elementType);
             var collectionFactory = CreateObjectFactory(concreteCollectionType);
             var addMethod = CreateAddMethod(concreteCollectionType, elementType);
 
             return capacity => new ObjectCollection(collectionFactory(capacity), addMethod);
-        }
-
-        private static Type ResolveCollectionType(Type collectionType, Type elementType)
-        {
-            if (collectionType == null)
-            {
-                throw new ArgumentNullException(nameof(collectionType));
-            }
-
-            if (elementType == null)
-            {
-                throw new ArgumentNullException(nameof(elementType));
-            }
-
-            if (collectionType.IsArray)
-            {
-                throw new NotSupportedException("Array collections must be created via CreateArray.");
-            }
-
-            if (collectionType.IsInterface || collectionType.IsAbstract)
-            {
-                if (!collectionType.IsGenericType)
-                {
-                    throw new NotSupportedException($"Collection type '{collectionType}' is not supported.");
-                }
-
-                var genericTypeDefinition = collectionType.GetGenericTypeDefinition();
-                if (genericTypeDefinition == typeof(IEnumerable<>) ||
-                    genericTypeDefinition == typeof(ICollection<>) ||
-                    genericTypeDefinition == typeof(IList<>) ||
-                    genericTypeDefinition == typeof(IReadOnlyCollection<>) ||
-                    genericTypeDefinition == typeof(IReadOnlyList<>))
-                {
-                    return typeof(List<>).MakeGenericType(elementType);
-                }
-
-                if (genericTypeDefinition == typeof(ISet<>))
-                {
-                    return typeof(HashSet<>).MakeGenericType(elementType);
-                }
-
-                throw new NotSupportedException($"Collection type '{collectionType}' is not supported.");
-            }
-
-            if (!typeof(IEnumerable).IsAssignableFrom(collectionType))
-            {
-                throw new NotSupportedException($"Collection type '{collectionType}' is not supported.");
-            }
-
-            return collectionType;
         }
 
         private static Func<int?, object> CreateObjectFactory(Type collectionType)

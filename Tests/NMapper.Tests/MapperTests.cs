@@ -381,6 +381,62 @@ namespace NMapper.Tests
         }
 
         [Fact]
+        public void ShouldMapCollections_ListToList()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new CountryMapping(),
+                new PersonMapping(),
+                new DelegateMapping<Address, string?>(source => source.Place),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            var persons = new List<Person>
+            {
+                new()
+                {
+                    Id = 1,
+                    Name = "Person 1",
+                    Address = new Address
+                    {
+                        Place = "Bern",
+                    },
+                    Country = new Country
+                    {
+                        Id = 10,
+                        Name = "Switzerland",
+                    },
+                },
+                new()
+                {
+                    Id = 2,
+                    Name = "Person 2",
+                    Address = new Address
+                    {
+                        Place = "Zurich",
+                    },
+                    Country = new Country
+                    {
+                        Id = 20,
+                        Name = "Germany",
+                    },
+                },
+            };
+
+            // Act
+            var personDtos = mapper.Map<List<PersonDto>>(persons);
+
+            // Assert
+            personDtos.Should().NotBeNull();
+            personDtos.Should().HaveCount(2);
+            personDtos[0].Address.Should().Be("Bern");
+            personDtos[0].Country!.Name.Should().Be("Switzerland");
+            personDtos[1].Address.Should().Be("Zurich");
+            personDtos[1].Country!.Id.Should().Be(20);
+        }
+
+        [Fact]
         public void ShouldMapCollections_ListToHashSet()
         {
             // Arrange

@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Concurrent;
+using System.Collections.ObjectModel;
 using NMapper.Internals;
 
 namespace NMapper
@@ -10,6 +11,7 @@ namespace NMapper
         private readonly Dictionary<TypePair, IFastInvoker> map = new();
         private readonly ConcurrentDictionary<Type, EnumerableTypeInfo> enumerableTypeCache = new();
         private readonly ConcurrentDictionary<TypePair, CollectionMappingInfo> collectionMappingInfoCache = new();
+        private readonly Dictionary<CollectionPlanKey, IFastCollectionMappingPlan> collectionMappingPlans = new();
 
         internal readonly MapperOptions Options;
 
@@ -87,6 +89,8 @@ namespace NMapper
                     this.map[typePair] = fastInvoker;
                 }
             }
+
+            this.RebuildCollectionMappingPlans();
         }
 
         public IEnumerable<TypePair> Mappings => this.map.Keys;
@@ -211,6 +215,11 @@ namespace NMapper
                     return new MappingResult((TTarget?)explicitResult, explicitException, context);
                 }
 
+                if (this.TryExecuteCompiledCollectionMappingPlan<TTarget>(source, typePair, context, out var compiledCollectionResult))
+                {
+                    return compiledCollectionResult;
+                }
+
                 var collectionMappingInfo = this.collectionMappingInfoCache.GetOrAdd(typePair, this.CreateCollectionMappingInfo);
 
                 if (collectionMappingInfo.Kind == CollectionMappingKind.Array)
@@ -246,6 +255,28 @@ namespace NMapper
             result = null;
             exception = null;
             return false;
+        }
+
+        private bool TryExecuteCompiledCollectionMappingPlan<TTarget>(object? source, TypePair typePair, MappingContext context, out MappingResult result)
+        {
+            var collectionMappingInfo = this.collectionMappingInfoCache.GetOrAdd(typePair, this.CreateCollectionMappingInfo);
+            if (collectionMappingInfo.Kind != CollectionMappingKind.Array &&
+                collectionMappingInfo.Kind != CollectionMappingKind.Enumerable)
+            {
+                result = default;
+                return false;
+            }
+
+            var planKey = new CollectionPlanKey(collectionMappingInfo.ElementTypePair.SourceType, typePair.TargetType);
+            if (!this.collectionMappingPlans.TryGetValue(planKey, out var plan))
+            {
+                result = default;
+                return false;
+            }
+
+            var mapped = plan.Map(source!, context);
+            result = new MappingResult((TTarget?)mapped, null, context);
+            return true;
         }
 
         private MappingResult MapArray<TTarget>(object? source, TypePair elementTypePair, MappingContext context)
@@ -336,6 +367,40 @@ namespace NMapper
         private CollectionMappingInfo CreateCollectionMappingInfo(TypePair typePair)
         {
             return new CollectionMappingInfo(typePair, this.GetEnumerableTypeInfo);
+        }
+
+        private void RebuildCollectionMappingPlans()
+        {
+            this.collectionMappingPlans.Clear();
+
+            foreach (var entry in this.map)
+            {
+                var sourceElementType = entry.Key.SourceType;
+                var targetElementType = entry.Key.TargetType;
+                var invoker = entry.Value;
+
+                foreach (var targetCollectionType in GetPrecompiledCollectionTargetTypes(targetElementType))
+                {
+                    if (invoker.TryCreateCollectionMappingPlan(targetCollectionType, out var plan))
+                    {
+                        this.collectionMappingPlans[new CollectionPlanKey(sourceElementType, targetCollectionType)] = plan!;
+                    }
+                }
+            }
+        }
+
+        private static IEnumerable<Type> GetPrecompiledCollectionTargetTypes(Type elementType)
+        {
+            yield return elementType.MakeArrayType();
+            yield return typeof(List<>).MakeGenericType(elementType);
+            yield return typeof(IEnumerable<>).MakeGenericType(elementType);
+            yield return typeof(ICollection<>).MakeGenericType(elementType);
+            yield return typeof(IList<>).MakeGenericType(elementType);
+            yield return typeof(IReadOnlyCollection<>).MakeGenericType(elementType);
+            yield return typeof(IReadOnlyList<>).MakeGenericType(elementType);
+            yield return typeof(HashSet<>).MakeGenericType(elementType);
+            yield return typeof(ISet<>).MakeGenericType(elementType);
+            yield return typeof(Collection<>).MakeGenericType(elementType);
         }
 
         private EnumerableTypeInfo GetEnumerableTypeInfo(Type type)

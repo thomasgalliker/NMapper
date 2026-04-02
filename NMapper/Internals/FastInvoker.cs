@@ -26,6 +26,28 @@
             this.mappingType = mappingType;
         }
 
+        public bool TryCreateCollectionMappingPlan(Type targetCollectionType, out IFastCollectionMappingPlan? plan)
+        {
+            if (targetCollectionType.IsArray)
+            {
+                plan = new FastArrayCollectionMappingPlan<TSource, TTarget>(this.map, this.typePair, this.mappingType);
+                return true;
+            }
+
+            try
+            {
+                var adapter = CollectionAdapterFactory.Create(targetCollectionType, typeof(TTarget));
+                plan = new FastEnumerableCollectionMappingPlan<TSource, TTarget>(this.map, this.typePair, this.mappingType, adapter);
+                return true;
+            }
+            catch (NotSupportedException)
+            {
+            }
+
+            plan = null;
+            return false;
+        }
+
         public MappingResult Invoke(object? source, MappingContext context)
         {
             try
