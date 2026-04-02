@@ -1,6 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-
-namespace NMapper.Internals
+﻿namespace NMapper.Internals
 {
     internal static class ReferenceGuards
     {
