@@ -6,11 +6,11 @@ using Xunit.Abstractions;
 
 namespace NMapper.Tests
 {
-    public partial class MapperPerformanceTests
+    public partial class MapperTests
     {
         private readonly ITestOutputHelper testOutputHelper;
 
-        public MapperPerformanceTests(ITestOutputHelper testOutputHelper)
+        public MapperTests(ITestOutputHelper testOutputHelper)
         {
             this.testOutputHelper = testOutputHelper;
         }

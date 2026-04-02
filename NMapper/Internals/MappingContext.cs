@@ -1,12 +1,10 @@
-﻿using System.Diagnostics.CodeAnalysis;
-
-namespace NMapper.Internals
+﻿namespace NMapper.Internals
 {
     internal sealed class MappingContext : IMappingContext
     {
         private readonly Mapper mapper;
         private readonly MapOptions? options;
-        private readonly List<Exception> exceptions = new();
+        private List<Exception>? exceptions;
 
         private int depth;
         private Dictionary<object, object>? references;
@@ -19,6 +17,8 @@ namespace NMapper.Internals
 
         public void AddException(Exception exception)
         {
+            this.exceptions ??= new List<Exception>();
+
             if (!this.exceptions.Contains(exception))
             {
                 this.exceptions.Add(exception);
@@ -54,6 +54,11 @@ namespace NMapper.Internals
 
         public void ThrowIfAnyException()
         {
+            if (this.exceptions == null)
+            {
+                return;
+            }
+
             if (this.exceptions.Count == 1)
             {
                 throw this.exceptions[0];

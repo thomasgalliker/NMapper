@@ -1,4 +1,5 @@
-﻿using FluentAssertions;
+﻿using System.Collections.ObjectModel;
+using FluentAssertions;
 using NMapper.TestData;
 using NMapper.TestData.Mappings;
 using Xunit;
@@ -174,6 +175,57 @@ namespace NMapper.Tests
         }
 
         [Fact]
+        public void ShouldMap_GenericOverload_UsesRuntimeTypeForDerivedSource()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new PersonMapping(),
+                new EmployeeMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            Person person = new Employee
+            {
+                Name = "Jane Doe",
+                EmployeeNumber = "E-100",
+            };
+
+            // Act
+            var personDto = mapper.Map<Person, PersonDto>(person);
+
+            // Assert
+            personDto.Should().NotBeNull();
+            personDto.Name.Should().Be("Jane Doe");
+            personDto.Address.Should().Contain("E-100");
+        }
+
+        [Fact]
+        public void ShouldMap_GenericOverload_UsesRuntimeTypeForInterfaceSource()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new EmployeeMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            IIdentifiable employee = new Employee
+            {
+                Name = "John Doe",
+                EmployeeNumber = "E-200",
+            };
+
+            // Act
+            var personDto = mapper.Map<IIdentifiable, PersonDto>(employee);
+
+            // Assert
+            personDto.Should().NotBeNull();
+            personDto.Name.Should().Be("John Doe");
+            personDto.Address.Should().Contain("E-200");
+        }
+
+        [Fact]
         public void ShouldMapCollections_ArrayToArray()
         {
             // Arrange
@@ -329,6 +381,114 @@ namespace NMapper.Tests
         }
 
         [Fact]
+        public void ShouldMapCollections_ListToHashSet()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new CountryMapping(),
+                new PersonMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            var country = new Country
+            {
+                Id = 1,
+                Name = "Canada",
+                NativeName = "Canada",
+            };
+            var persons = Enumerable.Range(1, 3)
+                .Select(i => new Person
+                {
+                    Id = i,
+                    Name = $"Person {i}",
+                    CountryId = country.Id,
+                    Country = country,
+                })
+                .ToList();
+
+            // Act
+            var personDtos = mapper.Map<HashSet<PersonDto>>(persons);
+
+            // Assert
+            personDtos.Should().NotBeNull();
+            personDtos.Should().HaveCount(3);
+            personDtos.All(p => p.Name?.StartsWith("Person") == true).Should().BeTrue();
+        }
+
+        [Fact]
+        public void ShouldMapCollections_ArrayToCollection()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new CountryMapping(),
+                new PersonMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            var country = new Country
+            {
+                Id = 1,
+                Name = "Canada",
+                NativeName = "Canada",
+            };
+            var persons = Enumerable.Range(1, 3)
+                .Select(i => new Person
+                {
+                    Id = i,
+                    Name = $"Person {i}",
+                    CountryId = country.Id,
+                    Country = country,
+                })
+                .ToArray();
+
+            // Act
+            var personDtos = mapper.Map<Collection<PersonDto>>(persons);
+
+            // Assert
+            personDtos.Should().NotBeNull();
+            personDtos.Should().HaveCount(3);
+            personDtos.All(p => p.Name?.StartsWith("Person") == true).Should().BeTrue();
+        }
+
+        [Fact]
+        public void ShouldMapCollections_ListToISet()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new CountryMapping(),
+                new PersonMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            var country = new Country
+            {
+                Id = 1,
+                Name = "Canada",
+                NativeName = "Canada",
+            };
+            var persons = Enumerable.Range(1, 3)
+                .Select(i => new Person
+                {
+                    Id = i,
+                    Name = $"Person {i}",
+                    CountryId = country.Id,
+                    Country = country,
+                })
+                .ToList();
+
+            // Act
+            var personDtos = mapper.Map<ISet<PersonDto>>(persons);
+
+            // Assert
+            personDtos.Should().NotBeNull();
+            personDtos.Should().HaveCount(3);
+            personDtos.All(p => p.Name?.StartsWith("Person") == true).Should().BeTrue();
+        }
+
+        [Fact]
         public void ShouldMapEnum()
         {
             // Arrange
@@ -345,6 +505,25 @@ namespace NMapper.Tests
 
             // Assert
             targetEnum.Should().Be(TargetEnum.Second);
+        }
+
+        [Fact]
+        public void ShouldMapUsingDelegateMapping()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new DelegateMapping<decimal, double>(d => (double)d),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            var decimalValue = 123.45m;
+
+            // Act
+            var doubleValue = mapper.Map<double>(decimalValue);
+
+            // Assert
+            doubleValue.Should().Be(123.45d);
         }
 
         [Fact]

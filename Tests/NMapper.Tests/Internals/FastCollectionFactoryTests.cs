@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.ObjectModel;
 using FluentAssertions;
 using NMapper.Internals;
 using Xunit;
@@ -80,54 +81,55 @@ namespace NMapper.Tests.Internals
         }
 
         [Fact]
-        public void CreateList_CreatesListOfCorrectGenericType()
+        public void CreateCollection_CreatesListOfCorrectGenericType()
         {
             // Arrange
             var elementType = typeof(int);
 
             // Act
-            var list = this.fastCollectionFactory.CreateList(elementType);
+            var list = this.fastCollectionFactory.CreateCollection(typeof(List<int>), elementType);
 
             // Assert
-            list.Should().NotBeNull();
-            list.Should().BeOfType<List<int>>();
-            list.Should().BeAssignableTo<IList>();
+            list.Collection.Should().NotBeNull();
+            list.Collection.Should().BeOfType<List<int>>();
+            list.Collection.Should().BeAssignableTo<IList>();
         }
 
         [Fact]
-        public void CreateList_AllowsAddingElements()
+        public void CreateCollection_AllowsAddingElements()
         {
             // Arrange
             var elementType = typeof(string);
-            var list = (List<string>)this.fastCollectionFactory.CreateList(elementType);
+            var collection = this.fastCollectionFactory.CreateCollection(typeof(List<string>), elementType);
 
             // Act
-            list.Add("x");
-            list.Add("y");
+            collection.Add("x");
+            collection.Add("y");
 
             // Assert
+            var list = (List<string>)collection.Collection;
             list.Should().HaveCount(2);
             list.Should().ContainInOrder(new[] { "x", "y" });
         }
 
         [Fact]
-        public void CreateList_ReusesFactory_ForSameElementType()
+        public void CreateCollection_ReusesFactory_ForSameCollectionType()
         {
             // Arrange
             var elementType = typeof(int);
 
             // Act
-            var list1 = this.fastCollectionFactory.CreateList(elementType);
-            var list2 = this.fastCollectionFactory.CreateList(elementType);
+            var list1 = this.fastCollectionFactory.CreateCollection(typeof(List<int>), elementType);
+            var list2 = this.fastCollectionFactory.CreateCollection(typeof(List<int>), elementType);
 
             // Assert
-            list1.Should().NotBeNull();
-            list1.Should().BeOfType<List<int>>();
+            list1.Collection.Should().NotBeNull();
+            list1.Collection.Should().BeOfType<List<int>>();
             
-            list2.Should().NotBeNull();
-            list2.Should().BeOfType<List<int>>();
+            list2.Collection.Should().NotBeNull();
+            list2.Collection.Should().BeOfType<List<int>>();
 
-            list1.Should().NotBeSameAs(list2);
+            list1.Collection.Should().NotBeSameAs(list2.Collection);
         }
 
         [Fact]
@@ -145,15 +147,15 @@ namespace NMapper.Tests.Internals
         }
 
         [Fact]
-        public void CreateList_DifferentElementTypes_CreateDifferentLists()
+        public void CreateCollection_DifferentElementTypes_CreateDifferentLists()
         {
             // Act
-            var intList = this.fastCollectionFactory.CreateList(typeof(int));
-            var stringList = this.fastCollectionFactory.CreateList(typeof(string));
+            var intList = this.fastCollectionFactory.CreateCollection(typeof(List<int>), typeof(int));
+            var stringList = this.fastCollectionFactory.CreateCollection(typeof(List<string>), typeof(string));
 
             // Assert
-            intList.Should().BeOfType<List<int>>();
-            stringList.Should().BeOfType<List<string>>();
+            intList.Collection.Should().BeOfType<List<int>>();
+            stringList.Collection.Should().BeOfType<List<string>>();
         }
 
         [Fact]
@@ -167,13 +169,39 @@ namespace NMapper.Tests.Internals
         }
 
         [Fact]
-        public void CreateList_Throws_OnNullElementType()
+        public void CreateCollection_Throws_OnNullElementType()
         {
             // Arrange
-            Action action = () => this.fastCollectionFactory.CreateList(null!);
+            Action action = () => this.fastCollectionFactory.CreateCollection(typeof(List<string>), null!);
 
             // Act
             action.Should().Throw<ArgumentNullException>();
+        }
+
+        [Fact]
+        public void CreateCollection_CreatesHashSet_ForSetInterface()
+        {
+            // Act
+            var collection = this.fastCollectionFactory.CreateCollection(typeof(ISet<int>), typeof(int));
+            collection.Add(1);
+            collection.Add(2);
+
+            // Assert
+            collection.Collection.Should().BeOfType<HashSet<int>>();
+            ((HashSet<int>)collection.Collection).Should().BeEquivalentTo(new[] { 1, 2 });
+        }
+
+        [Fact]
+        public void CreateCollection_CreatesCollection_ForConcreteCollectionType()
+        {
+            // Act
+            var collection = this.fastCollectionFactory.CreateCollection(typeof(Collection<string>), typeof(string));
+            collection.Add("a");
+            collection.Add("b");
+
+            // Assert
+            collection.Collection.Should().BeOfType<Collection<string>>();
+            ((Collection<string>)collection.Collection).Should().ContainInOrder("a", "b");
         }
     }
 }

@@ -1,5 +1,5 @@
 ﻿using System.Collections;
-using System.Diagnostics.CodeAnalysis;
+using System.Collections.Concurrent;
 using NMapper.Internals;
 
 namespace NMapper
@@ -8,6 +8,9 @@ namespace NMapper
     {
         private readonly ICollectionFactory collectionFactory;
         private readonly Dictionary<TypePair, IFastInvoker> map = new();
+        private readonly ConcurrentDictionary<Type, EnumerableTypeInfo> enumerableTypeCache = new();
+        private readonly ConcurrentDictionary<TypePair, CollectionMappingInfo> collectionMappingInfoCache = new();
+
         internal readonly MapperOptions Options;
 
         public Mapper()
@@ -54,6 +57,8 @@ namespace NMapper
 
         private void RegisterMappingInternal(IMapping mapping, bool throwDuplicates = true)
         {
+            this.collectionMappingInfoCache.Clear();
+
             var mappingInterfaces = mapping.GetType()
                             .GetInterfaces()
                             .Where(i => i.IsGenericType && (i.GetGenericTypeDefinition() == typeof(IMapping<,>) ||
@@ -131,8 +136,7 @@ namespace NMapper
         [return: NotNullIfNotNull(nameof(source))]
         public TTarget? Map<TSource, TTarget>(TSource? source, Action<MapOptions>? options)
         {
-            var sourceType = typeof(TSource);
-
+            var sourceType = GetSourceType(source);
             var context = this.CreateMappingContext(options);
             var result = this.MapInternal<TTarget>(source, sourceType, context);
 
@@ -141,13 +145,34 @@ namespace NMapper
             return (TTarget?)result.Result;
         }
 
+        private static Type? GetSourceType<TSource>(TSource? source)
+        {
+            var declaredSourceType = typeof(TSource);
+            var runtimeSourceType = source?.GetType();
+            var sourceType = runtimeSourceType;
+
+            if (runtimeSourceType == null)
+            {
+                sourceType = declaredSourceType;
+            }
+            else if (declaredSourceType != runtimeSourceType &&
+                     declaredSourceType != typeof(object) &&
+                     !declaredSourceType.IsInterface &&
+                     (declaredSourceType.IsValueType || declaredSourceType.IsSealed))
+            {
+                sourceType = declaredSourceType;
+            }
+
+            return sourceType;
+        }
+
         internal MappingResult MapInternal<TTarget>(object? source, Type? sourceType, MappingContext context)
         {
             if (sourceType == null)
             {
                 return new MappingResult(default(TTarget), null, context);
             }
-            
+
             var typePair = new TypePair(sourceType, typeof(TTarget));
 
             // Recursion detection
@@ -186,27 +211,16 @@ namespace NMapper
                     return new MappingResult((TTarget?)explicitResult, explicitException, context);
                 }
 
+                var collectionMappingInfo = this.collectionMappingInfoCache.GetOrAdd(typePair, this.CreateCollectionMappingInfo);
 
-                if (TryGetEnumerableElementType(sourceType, out var sourceElementType))
+                if (collectionMappingInfo.Kind == CollectionMappingKind.Array)
                 {
-                    // Array
-                    if (typePair.TargetType.IsArray)
-                    {
-                        var targetElementType = typePair.TargetType.GetElementType()!;
-                        var elementTypePair = new TypePair(sourceElementType, targetElementType);
-                        var mappingResult = this.MapArray<TTarget>(source, elementTypePair, context);
-                        return mappingResult;
-                    }
+                    return this.MapArray<TTarget>(source, collectionMappingInfo.ElementTypePair, context);
+                }
 
-                    // IEnumerable<T>
-                    {
-                        if (TryGetEnumerableElementType(typePair.TargetType, out var targetElementType))
-                        {
-                            var elementTypePair = new TypePair(sourceElementType, targetElementType);
-                            var mappingResult = this.MapEnumerable<TTarget>(source, elementTypePair, context);
-                            return mappingResult;
-                        }
-                    }
+                if (collectionMappingInfo.Kind == CollectionMappingKind.Enumerable)
+                {
+                    return this.MapEnumerable<TTarget>(source, collectionMappingInfo.ElementTypePair, context);
                 }
             }
             finally
@@ -261,7 +275,8 @@ namespace NMapper
 
                 return new MappingResult(array, null, context);
             }
-            else if (source is IEnumerable enumerable)
+
+            if (source is IEnumerable enumerable)
             {
                 // fallback for IEnumerable
                 var temp = new List<object?>();
@@ -289,7 +304,6 @@ namespace NMapper
             throw new NotSupportedException();
         }
 
-
         private MappingResult MapEnumerable<TTarget>(object? source, TypePair elementTypePair, MappingContext context)
         {
             if (!this.map.TryGetValue(elementTypePair, out var elementMap))
@@ -300,62 +314,33 @@ namespace NMapper
                 return new MappingResult(default(TTarget), ex, context);
             }
 
-            var list = this.collectionFactory.CreateList(elementTypePair.TargetType);
-            context.StoreMappedObject(source, list);
+            int? capacity = source is ICollection collection ? collection.Count : null;
+            var targetCollection = this.collectionFactory.CreateCollection(typeof(TTarget), elementTypePair.TargetType, capacity);
+            context.StoreMappedObject(source, targetCollection.Collection);
 
-            if (source is IEnumerable enumerable)
+            if (source is IEnumerable targetEnumerable)
             {
-                foreach (var item in enumerable)
+                foreach (var item in targetEnumerable)
                 {
                     var mappingResult = elementMap.Invoke(item, context);
                     if (mappingResult.Success)
                     {
-                        list.Add(mappingResult.Result);
+                        targetCollection.Add(mappingResult.Result);
                     }
                 }
             }
 
-            return new MappingResult(list, null, context);
+            return new MappingResult(targetCollection.Collection, null, context);
         }
 
-        private static bool TryGetEnumerableElementType(Type type, out Type elementType)
+        private CollectionMappingInfo CreateCollectionMappingInfo(TypePair typePair)
         {
-            // string is IEnumerable<char>, but we never want to treat it as a collection
-            if (type == typeof(string))
-            {
-                elementType = null!;
-                return false;
-            }
+            return new CollectionMappingInfo(typePair, this.GetEnumerableTypeInfo);
+        }
 
-            // Array
-            if (type.IsArray)
-            {
-                elementType = type.GetElementType()!;
-                return true;
-            }
-
-            // IEnumerable<T> itself
-            if (type.IsGenericType &&
-                type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
-            {
-                elementType = type.GetGenericArguments()[0];
-                return true;
-            }
-
-            // Implementations of IEnumerable<T>
-            var enumerableInterface = type.GetInterfaces()
-                .FirstOrDefault(i =>
-                    i.IsGenericType &&
-                    i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
-
-            if (enumerableInterface != null)
-            {
-                elementType = enumerableInterface.GetGenericArguments()[0];
-                return true;
-            }
-
-            elementType = null!;
-            return false;
+        private EnumerableTypeInfo GetEnumerableTypeInfo(Type type)
+        {
+            return this.enumerableTypeCache.GetOrAdd(type, static t => new EnumerableTypeInfo(t));
         }
     }
 }
