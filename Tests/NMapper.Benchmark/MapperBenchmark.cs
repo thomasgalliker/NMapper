@@ -1,7 +1,8 @@
-﻿using NMapper;
+﻿using AutoMapper;
+using Microsoft.Extensions.Logging.Abstractions;
+using NMapper;
 using BenchmarkDotNet.Attributes;
 using Nelibur.ObjectMapper;
-using AMapper = AutoMapper.Mapper;
 using NMapper.TestData;
 
 namespace Benchmark
@@ -10,7 +11,8 @@ namespace Benchmark
     {
         private readonly SourceWithCollections source = SourceWithCollectionsHelper.CreateSource(100);
         //private readonly Person[] persons = Enumerable.Range(0, 100).Select(i => new Person { Id = i }).ToArray();
-        private IMapper mapper = null!;
+        private NMapper.IMapper mapper = null!;
+        private AutoMapper.IMapper autoMapper = null!;
         private const int Iterations = 1;
 
 
@@ -32,13 +34,15 @@ namespace Benchmark
 
         private void InitAutoMapper()
         {
-            AMapper.Initialize(x =>
+            var configuration = new MapperConfiguration(x =>
             {
                 x.CreateMap<SourceWithCollections, TargetWithCollections>();
                 x.CreateMap<Item, ItemDto>();
                 //x.CreateMap<Person, PersonDto>();
                 //x.CreateMap<Country, CountryDto>();
-            });
+            }, NullLoggerFactory.Instance);
+
+            this.autoMapper = configuration.CreateMapper();
         }
 
         private void InitNMapper()
@@ -51,7 +55,7 @@ namespace Benchmark
                 //new PersonMapping(),
                 //new CountryMapping()
             };
-            this.mapper = new Mapper(new MapperOptions { Mappings = mappings });
+            this.mapper = new NMapper.Mapper(new MapperOptions { Mappings = mappings });
         }
 
         [Benchmark]
@@ -69,8 +73,8 @@ namespace Benchmark
         {
             for (var i = 0; i < Iterations; i++)
             {
-                var result = AMapper.Map<TargetWithCollections>(this.source);
-                //var personDtos = AMapper.Map<PersonDto[]>(this.persons);
+                var result = this.autoMapper.Map<TargetWithCollections>(this.source);
+                //var personDtos = this.autoMapper.Map<PersonDto[]>(this.persons);
             }
         }
 
