@@ -1,4 +1,3 @@
-﻿using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using NMapper.Internals;
@@ -7,7 +6,6 @@ namespace NMapper
 {
     public sealed class Mapper : IMapper
     {
-        private readonly ICollectionFactory collectionFactory;
         private readonly Dictionary<TypePair, IFastInvoker> map = new();
         private readonly ConcurrentDictionary<Type, EnumerableTypeInfo> enumerableTypeCache = new();
         private readonly ConcurrentDictionary<TypePair, CollectionMappingInfo> collectionMappingInfoCache = new();
@@ -33,7 +31,6 @@ namespace NMapper
         public Mapper(MapperOptions? options)
         {
             this.Options = options ?? new MapperOptions();
-            this.collectionFactory = this.Options.CollectionFactory ?? new FastCollectionFactory();
             this.RegisterMappings(this.Options.Mappings);
         }
 
@@ -41,31 +38,31 @@ namespace NMapper
         {
             foreach (var mapping in mappings)
             {
-                this.RegisterMapping(mapping);
+                this.RegisterMappingInternal(mapping, rebuildCollectionPlans: false);
             }
 
-            //this.RegisterMappingInternal(new DoubleToDecimalMapping(), throwDuplicates: false);
+            this.RebuildCollectionMappingPlans();
         }
 
         public void RegisterMapping<TSource, TTarget>(Func<TSource, TTarget> mapping)
         {
-            this.RegisterMappingInternal(new DelegateMapping<TSource, TTarget>(mapping));
+            this.RegisterMappingInternal(new DelegateMapping<TSource, TTarget>(mapping), rebuildCollectionPlans: true);
         }
 
         public void RegisterMapping(IMapping mapping)
         {
-            this.RegisterMappingInternal(mapping);
+            this.RegisterMappingInternal(mapping, rebuildCollectionPlans: true);
         }
 
-        private void RegisterMappingInternal(IMapping mapping, bool throwDuplicates = true)
+        private void RegisterMappingInternal(IMapping mapping, bool rebuildCollectionPlans)
         {
             this.collectionMappingInfoCache.Clear();
 
             var mappingInterfaces = mapping.GetType()
-                            .GetInterfaces()
-                            .Where(i => i.IsGenericType && (i.GetGenericTypeDefinition() == typeof(IMapping<,>) ||
-                                                            i.GetGenericTypeDefinition() == typeof(IMappingWithContext<,>)))
-                            .ToArray();
+                .GetInterfaces()
+                .Where(i => i.IsGenericType && (i.GetGenericTypeDefinition() == typeof(IMapping<,>) ||
+                                                i.GetGenericTypeDefinition() == typeof(IMappingWithContext<,>)))
+                .ToArray();
 
             foreach (var mappingInterface in mappingInterfaces)
             {
@@ -90,7 +87,10 @@ namespace NMapper
                 }
             }
 
-            this.RebuildCollectionMappingPlans();
+            if (rebuildCollectionPlans)
+            {
+                this.RebuildCollectionMappingPlans();
+            }
         }
 
         public IEnumerable<TypePair> Mappings => this.map.Keys;
@@ -122,13 +122,9 @@ namespace NMapper
         [return: NotNullIfNotNull(nameof(source))]
         public TTarget? Map<TTarget>(object? source, Action<MapOptions>? options)
         {
-            var sourceType = source?.GetType() ?? null;
+            var sourceType = GetSourceType(source);
             var context = this.CreateMappingContext(options);
-            var result = this.MapInternal<TTarget>(source, sourceType, context);
-
-            context.ThrowIfAnyException();
-
-            return (TTarget?)result.Result;
+            return this.MapInternal<TTarget>(source, sourceType, context);
         }
 
         [return: NotNullIfNotNull(nameof(source))]
@@ -142,14 +138,15 @@ namespace NMapper
         {
             var sourceType = GetSourceType(source);
             var context = this.CreateMappingContext(options);
-            var result = this.MapInternal<TTarget>(source, sourceType, context);
-
-            context.ThrowIfAnyException();
-
-            return (TTarget?)result.Result;
+            return this.MapInternal<TTarget>(source, sourceType, context);
         }
 
-        private static Type? GetSourceType<TSource>(TSource? source)
+        internal static Type? GetSourceType(object? source)
+        {
+            return source?.GetType();
+        }
+
+        internal static Type? GetSourceType<TSource>(TSource? source)
         {
             var declaredSourceType = typeof(TSource);
             var runtimeSourceType = source?.GetType();
@@ -170,11 +167,11 @@ namespace NMapper
             return sourceType;
         }
 
-        internal MappingResult MapInternal<TTarget>(object? source, Type? sourceType, MappingContext context)
+        internal TTarget? MapInternal<TTarget>(object? source, Type? sourceType, MappingContext context)
         {
             if (sourceType == null)
             {
-                return new MappingResult(default(TTarget), null, context);
+                return default;
             }
 
             var typePair = new TypePair(sourceType, typeof(TTarget));
@@ -182,37 +179,33 @@ namespace NMapper
             // Recursion detection
             if (!context.TryEnter(source))
             {
-                MappingException? mappingException = null;
-
                 if (context.ThrowIfMaxDepthExceeded)
                 {
-                    mappingException = new MappingException(
+                    throw new MappingException(
                         sourceType,
                         typeof(TTarget),
                         this.GetType(),
                         new InvalidOperationException($"Maximum recursion depth exceeded (MaxDepth: {context.MaxDepth})."));
-
-                    context.AddException(mappingException);
                 }
 
-                return new(default, mappingException, context);
+                return default;
             }
 
             try
             {
                 if (context.TryGetMappedObject(source, out var cached))
                 {
-                    return new MappingResult((TTarget?)cached, null, context);
+                    return (TTarget?)cached;
                 }
 
-                if (this.TryExecuteExplicitMapping(source, typePair, context, out var explicitResult, out var explicitException))
+                if (this.TryExecuteExplicitMapping(source, typePair, context, out var explicitResult))
                 {
-                    if (explicitException is null && explicitResult is not null)
+                    if (explicitResult is not null)
                     {
                         context.StoreMappedObject(source, explicitResult);
                     }
 
-                    return new MappingResult((TTarget?)explicitResult, explicitException, context);
+                    return (TTarget?)explicitResult;
                 }
 
                 if (this.TryExecuteCompiledCollectionMappingPlan<TTarget>(source, typePair, context, out var compiledCollectionResult))
@@ -221,15 +214,10 @@ namespace NMapper
                 }
 
                 var collectionMappingInfo = this.collectionMappingInfoCache.GetOrAdd(typePair, this.CreateCollectionMappingInfo);
-
-                if (collectionMappingInfo.Kind == CollectionMappingKind.Array)
+                if (collectionMappingInfo.Kind == CollectionMappingKind.Array ||
+                    collectionMappingInfo.Kind == CollectionMappingKind.Enumerable)
                 {
-                    return this.MapArray<TTarget>(source, collectionMappingInfo.ElementTypePair, context);
-                }
-
-                if (collectionMappingInfo.Kind == CollectionMappingKind.Enumerable)
-                {
-                    return this.MapEnumerable<TTarget>(source, collectionMappingInfo.ElementTypePair, context);
+                    throw new MissingMappingException(collectionMappingInfo.ElementTypePair.SourceType, collectionMappingInfo.ElementTypePair.TargetType);
                 }
             }
             finally
@@ -237,27 +225,22 @@ namespace NMapper
                 context.Exit(source);
             }
 
-            var missingMappingException = new MissingMappingException(sourceType, typePair.TargetType);
-            context.AddException(missingMappingException);
-            return new(default, missingMappingException, context);
+            throw new MissingMappingException(sourceType, typePair.TargetType);
         }
 
-        private bool TryExecuteExplicitMapping(object? source, TypePair typePair, MappingContext context, out object? result, out Exception? exception)
+        private bool TryExecuteExplicitMapping(object? source, TypePair typePair, MappingContext context, out object? result)
         {
             if (this.map.TryGetValue(typePair, out var map))
             {
-                var r = map.Invoke(source, context);
-                result = r.Result;
-                exception = r.Exception;
+                result = map.Invoke(source, context);
                 return true;
             }
 
             result = null;
-            exception = null;
             return false;
         }
 
-        private bool TryExecuteCompiledCollectionMappingPlan<TTarget>(object? source, TypePair typePair, MappingContext context, out MappingResult result)
+        private bool TryExecuteCompiledCollectionMappingPlan<TTarget>(object? source, TypePair typePair, MappingContext context, out TTarget? result)
         {
             var collectionMappingInfo = this.collectionMappingInfoCache.GetOrAdd(typePair, this.CreateCollectionMappingInfo);
             if (collectionMappingInfo.Kind != CollectionMappingKind.Array &&
@@ -274,94 +257,8 @@ namespace NMapper
                 return false;
             }
 
-            var mapped = plan.Map(source!, context);
-            result = new MappingResult((TTarget?)mapped, null, context);
+            result = (TTarget?)plan.Map(source!, context);
             return true;
-        }
-
-        private MappingResult MapArray<TTarget>(object? source, TypePair elementTypePair, MappingContext context)
-        {
-            if (!this.map.TryGetValue(elementTypePair, out var elementMap))
-            {
-                var ex = new MissingMappingException(elementTypePair.SourceType, elementTypePair.TargetType);
-                context.AddException(ex);
-
-                return new MappingResult(default(TTarget), ex, context);
-            }
-
-            if (source is ICollection collection)
-            {
-                var array = this.collectionFactory.CreateArray(elementTypePair.TargetType, collection.Count);
-                context.StoreMappedObject(source, array);
-
-                var i = 0;
-                foreach (var item in collection)
-                {
-                    var r = elementMap.Invoke(item, context);
-                    if (r.Success)
-                    {
-                        array.SetValue(r.Result, i++);
-                    }
-                }
-
-                return new MappingResult(array, null, context);
-            }
-
-            if (source is IEnumerable enumerable)
-            {
-                // fallback for IEnumerable
-                var temp = new List<object?>();
-
-                foreach (var item in enumerable)
-                {
-                    var r = elementMap.Invoke(item, context);
-                    if (r.Success)
-                    {
-                        temp.Add(r.Result);
-                    }
-                }
-
-                var array = this.collectionFactory.CreateArray(elementTypePair.TargetType, temp.Count);
-                context.StoreMappedObject(source, array);
-
-                for (var i = 0; i < temp.Count; i++)
-                {
-                    array.SetValue(temp[i], i);
-                }
-
-                return new MappingResult(array, null, context);
-            }
-
-            throw new NotSupportedException();
-        }
-
-        private MappingResult MapEnumerable<TTarget>(object? source, TypePair elementTypePair, MappingContext context)
-        {
-            if (!this.map.TryGetValue(elementTypePair, out var elementMap))
-            {
-                var ex = new MissingMappingException(elementTypePair.SourceType, elementTypePair.TargetType);
-                context.AddException(ex);
-
-                return new MappingResult(default(TTarget), ex, context);
-            }
-
-            int? capacity = source is ICollection collection ? collection.Count : null;
-            var targetCollection = this.collectionFactory.CreateCollection(typeof(TTarget), elementTypePair.TargetType, capacity);
-            context.StoreMappedObject(source, targetCollection.Collection);
-
-            if (source is IEnumerable targetEnumerable)
-            {
-                foreach (var item in targetEnumerable)
-                {
-                    var mappingResult = elementMap.Invoke(item, context);
-                    if (mappingResult.Success)
-                    {
-                        targetCollection.Add(mappingResult.Result);
-                    }
-                }
-            }
-
-            return new MappingResult(targetCollection.Collection, null, context);
         }
 
         private CollectionMappingInfo CreateCollectionMappingInfo(TypePair typePair)
@@ -377,13 +274,13 @@ namespace NMapper
             {
                 var sourceElementType = entry.Key.SourceType;
                 var targetElementType = entry.Key.TargetType;
-                var invoker = entry.Value;
+                var fastInvoker = entry.Value;
 
                 foreach (var targetCollectionType in GetPrecompiledCollectionTargetTypes(targetElementType))
                 {
-                    if (invoker.TryCreateCollectionMappingPlan(targetCollectionType, out var plan))
+                    if (fastInvoker.TryCreateCollectionMappingPlan(targetCollectionType, out var collectionMappingPlan))
                     {
-                        this.collectionMappingPlans[new CollectionPlanKey(sourceElementType, targetCollectionType)] = plan!;
+                        this.collectionMappingPlans[new CollectionPlanKey(sourceElementType, targetCollectionType)] = collectionMappingPlan;
                     }
                 }
             }

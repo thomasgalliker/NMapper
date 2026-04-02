@@ -25,10 +25,7 @@ namespace NMapper.Internals
 
                 for (var i = 0; i < sourceArray.Length; i++)
                 {
-                    if (FastCollectionMappingPlan.TryMap(sourceArray[i], this.map, context, this.elementTypePair, this.mappingType, out var mapped))
-                    {
-                        targetArray[i] = mapped!;
-                    }
+                    targetArray[i] = FastCollectionMappingPlan.MapItem(sourceArray[i], this.map, this.elementTypePair, this.mappingType)!;
                 }
 
                 return targetArray;
@@ -42,10 +39,7 @@ namespace NMapper.Internals
                 var index = 0;
                 foreach (var item in collection)
                 {
-                    if (FastCollectionMappingPlan.TryMap((TSource?)item, this.map, context, this.elementTypePair, this.mappingType, out var mapped))
-                    {
-                        targetArray[index++] = mapped!;
-                    }
+                    targetArray[index++] = FastCollectionMappingPlan.MapItem((TSource?)item, this.map, this.elementTypePair, this.mappingType)!;
                 }
 
                 return targetArray;
@@ -54,10 +48,7 @@ namespace NMapper.Internals
             var temp = new List<TTarget>();
             foreach (var item in FastCollectionMappingPlan.Enumerate<TSource>(source))
             {
-                if (FastCollectionMappingPlan.TryMap(item, this.map, context, this.elementTypePair, this.mappingType, out var mapped))
-                {
-                    temp.Add(mapped!);
-                }
+                temp.Add(FastCollectionMappingPlan.MapItem(item, this.map, this.elementTypePair, this.mappingType)!);
             }
 
             return temp.ToArray();
@@ -88,10 +79,7 @@ namespace NMapper.Internals
             {
                 for (var i = 0; i < sourceList.Count; i++)
                 {
-                    if (FastCollectionMappingPlan.TryMap(sourceList[i], this.map, context, this.elementTypePair, this.mappingType, out var mapped))
-                    {
-                        this.collectionAdapter.Add(targetCollection, mapped);
-                    }
+                    this.collectionAdapter.Add(targetCollection, FastCollectionMappingPlan.MapItem(sourceList[i], this.map, this.elementTypePair, this.mappingType));
                 }
 
                 return targetCollection;
@@ -99,10 +87,7 @@ namespace NMapper.Internals
 
             foreach (var item in FastCollectionMappingPlan.Enumerate<TSource>(source))
             {
-                if (FastCollectionMappingPlan.TryMap(item, this.map, context, this.elementTypePair, this.mappingType, out var mapped))
-                {
-                    this.collectionAdapter.Add(targetCollection, mapped);
-                }
+                this.collectionAdapter.Add(targetCollection, FastCollectionMappingPlan.MapItem(item, this.map, this.elementTypePair, this.mappingType));
             }
 
             return targetCollection;
@@ -131,10 +116,7 @@ namespace NMapper.Internals
 
                 for (var i = 0; i < sourceArray.Length; i++)
                 {
-                    if (FastCollectionMappingPlan.TryMap(sourceArray[i], this.map, context, this.elementTypePair, this.mappingType, out var mapped))
-                    {
-                        targetArray[i] = mapped!;
-                    }
+                    targetArray[i] = FastCollectionMappingPlan.MapItem(sourceArray[i], this.map, context, this.elementTypePair, this.mappingType)!;
                 }
 
                 return targetArray;
@@ -148,10 +130,7 @@ namespace NMapper.Internals
                 var index = 0;
                 foreach (var item in collection)
                 {
-                    if (FastCollectionMappingPlan.TryMap((TSource?)item, this.map, context, this.elementTypePair, this.mappingType, out var mapped))
-                    {
-                        targetArray[index++] = mapped!;
-                    }
+                    targetArray[index++] = FastCollectionMappingPlan.MapItem((TSource?)item, this.map, context, this.elementTypePair, this.mappingType)!;
                 }
 
                 return targetArray;
@@ -160,10 +139,7 @@ namespace NMapper.Internals
             var temp = new List<TTarget>();
             foreach (var item in FastCollectionMappingPlan.Enumerate<TSource>(source))
             {
-                if (FastCollectionMappingPlan.TryMap(item, this.map, context, this.elementTypePair, this.mappingType, out var mapped))
-                {
-                    temp.Add(mapped!);
-                }
+                temp.Add(FastCollectionMappingPlan.MapItem(item, this.map, context, this.elementTypePair, this.mappingType)!);
             }
 
             return temp.ToArray();
@@ -194,10 +170,7 @@ namespace NMapper.Internals
             {
                 for (var i = 0; i < sourceList.Count; i++)
                 {
-                    if (FastCollectionMappingPlan.TryMap(sourceList[i], this.map, context, this.elementTypePair, this.mappingType, out var mapped))
-                    {
-                        this.collectionAdapter.Add(targetCollection, mapped);
-                    }
+                    this.collectionAdapter.Add(targetCollection, FastCollectionMappingPlan.MapItem(sourceList[i], this.map, context, this.elementTypePair, this.mappingType));
                 }
 
                 return targetCollection;
@@ -205,10 +178,7 @@ namespace NMapper.Internals
 
             foreach (var item in FastCollectionMappingPlan.Enumerate<TSource>(source))
             {
-                if (FastCollectionMappingPlan.TryMap(item, this.map, context, this.elementTypePair, this.mappingType, out var mapped))
-                {
-                    this.collectionAdapter.Add(targetCollection, mapped);
-                }
+                this.collectionAdapter.Add(targetCollection, FastCollectionMappingPlan.MapItem(item, this.map, context, this.elementTypePair, this.mappingType));
             }
 
             return targetCollection;
@@ -217,45 +187,46 @@ namespace NMapper.Internals
 
     internal static class FastCollectionMappingPlan
     {
-        internal static bool TryMap<TSource, TTarget>(
+        internal static TTarget? MapItem<TSource, TTarget>(
             TSource? source,
             Func<TSource?, TTarget?> map,
-            MappingContext context,
             TypePair elementTypePair,
-            Type mappingType,
-            out TTarget? result)
+            Type mappingType)
         {
             try
             {
-                result = map(source);
-                return true;
+                return map(source);
             }
             catch (Exception ex)
             {
-                context.AddException(new MappingException(elementTypePair.SourceType, elementTypePair.TargetType, mappingType, ex));
-                result = default;
-                return false;
+                if (ex is MappingException or MissingMappingException)
+                {
+                    throw;
+                }
+
+                throw new MappingException(elementTypePair.SourceType, elementTypePair.TargetType, mappingType, ex);
             }
         }
 
-        internal static bool TryMap<TSource, TTarget>(
+        internal static TTarget? MapItem<TSource, TTarget>(
             TSource? source,
             Func<TSource?, MappingContext, TTarget?> map,
             MappingContext context,
             TypePair elementTypePair,
-            Type mappingType,
-            out TTarget? result)
+            Type mappingType)
         {
             try
             {
-                result = map(source, context);
-                return true;
+                return map(source, context);
             }
             catch (Exception ex)
             {
-                context.AddException(new MappingException(elementTypePair.SourceType, elementTypePair.TargetType, mappingType, ex));
-                result = default;
-                return false;
+                if (ex is MappingException or MissingMappingException)
+                {
+                    throw;
+                }
+
+                throw new MappingException(elementTypePair.SourceType, elementTypePair.TargetType, mappingType, ex);
             }
         }
 

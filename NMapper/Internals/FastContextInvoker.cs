@@ -26,7 +26,7 @@
             this.mappingType = mappingType;
         }
 
-        public bool TryCreateCollectionMappingPlan(Type targetCollectionType, out IFastCollectionMappingPlan? plan)
+        public bool TryCreateCollectionMappingPlan(Type targetCollectionType, [NotNullWhen(true)] out IFastCollectionMappingPlan? plan)
         {
             if (targetCollectionType.IsArray)
             {
@@ -48,18 +48,20 @@
             return false;
         }
 
-        public MappingResult Invoke(object? source, MappingContext context)
+        public object? Invoke(object? source, MappingContext context)
         {
             try
             {
-                var result = this.map((TSource?)source, context);
-                return new MappingResult(result, null, context);
+                return this.map((TSource?)source, context);
             }
             catch (Exception ex)
             {
-                var mappingException = new MappingException(this.typePair.SourceType, this.typePair.TargetType, this.mappingType, ex);
-                context.AddException(mappingException);
-                return new MappingResult(null, mappingException, context);
+                if (ex is MappingException or MissingMappingException)
+                {
+                    throw;
+                }
+
+                throw new MappingException(this.typePair.SourceType, this.typePair.TargetType, this.mappingType, ex);
             }
         }
     }

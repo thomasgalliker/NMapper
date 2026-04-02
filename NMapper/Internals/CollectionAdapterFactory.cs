@@ -72,7 +72,9 @@ namespace NMapper.Internals
 
         private sealed class CompiledCollectionAdapter<TCollection, TItem> : ICompiledCollectionAdapter
         {
+            // ReSharper disable once StaticMemberInGenericType
             private static readonly Func<int?, object> CreateCollection = CreateCollectionFactory();
+            // ReSharper disable once StaticMemberInGenericType
             private static readonly Action<object, object?> AddToCollection = CreateAddMethod();
 
             public object Create(int? capacity)
