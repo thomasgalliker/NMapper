@@ -1,3 +1,8 @@
+2.2
+- Improved collection mapping performance.
+- Refactored internal mapping structure to favor mapping performance.
+- Fixed inconsistent source type handling between `IMapper` and `IMappingContext`.
+
 2.1
 - Added support for mapping into more collection targets, including sets and concrete collection types.
 - Improved FastCollectionFactory for thread safety and lower-allocation collection mapping.

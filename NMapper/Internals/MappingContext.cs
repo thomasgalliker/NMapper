@@ -4,7 +4,6 @@
     {
         private readonly Mapper mapper;
         private readonly MapOptions? options;
-        private List<Exception>? exceptions;
 
         private int depth;
         private Dictionary<object, object>? references;
@@ -15,59 +14,22 @@
             this.options = options;
         }
 
-        public void AddException(Exception exception)
-        {
-            this.exceptions ??= new List<Exception>();
-
-            if (!this.exceptions.Contains(exception))
-            {
-                this.exceptions.Add(exception);
-            }
-        }
-
         public TTarget? Map<TTarget>(object? source)
         {
-            var sourceType = source?.GetType() ?? null;
+            var sourceType = Mapper.GetSourceType(source);
             return this.Map<TTarget>(source, sourceType);
         }
 
         [return: NotNullIfNotNull(nameof(source))]
         public TTarget? Map<TSource, TTarget>(TSource? source)
         {
-            var sourceType = typeof(TSource);
+            var sourceType = Mapper.GetSourceType(source);
             return this.Map<TTarget>(source, sourceType);
         }
 
         private TTarget? Map<TTarget>(object? source, Type? sourceType)
         {
-            var result = this.mapper.MapInternal<TTarget>(source, sourceType, this);
-            if (result.Exception != null)
-            {
-                this.AddException(result.Exception);
-                return default;
-            }
-            else
-            {
-                return (TTarget?)result.Result;
-            }
-        }
-
-        public void ThrowIfAnyException()
-        {
-            if (this.exceptions == null)
-            {
-                return;
-            }
-
-            if (this.exceptions.Count == 1)
-            {
-                throw this.exceptions[0];
-            }
-
-            if (this.exceptions.Count > 1)
-            {
-                throw new AggregateException(this.exceptions);
-            }
+            return this.mapper.MapInternal<TTarget>(source, sourceType, this);
         }
 
         internal bool TryEnter(object? source)
@@ -109,7 +71,7 @@
             return this.options?.MaxDepth ?? this.mapper.Options.MaxDepth;
         }
 
-        internal bool TryGetMappedObject(object? source, out object? target)
+        internal bool TryGetMappedObject(object? source, [NotNullWhen(true)] out object? target)
         {
             target = null;
 

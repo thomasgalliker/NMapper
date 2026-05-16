@@ -26,18 +26,42 @@
             this.mappingType = mappingType;
         }
 
-        public MappingResult Invoke(object? source, MappingContext context)
+        public bool TryCreateCollectionMappingPlan(Type targetCollectionType, [NotNullWhen(true)] out IFastCollectionMappingPlan? plan)
+        {
+            if (targetCollectionType.IsArray)
+            {
+                plan = new FastContextArrayCollectionMappingPlan<TSource, TTarget>(this.map, this.typePair, this.mappingType);
+                return true;
+            }
+
+            try
+            {
+                var adapter = CollectionAdapterFactory.Create(targetCollectionType, typeof(TTarget));
+                plan = new FastContextEnumerableCollectionMappingPlan<TSource, TTarget>(this.map, this.typePair, this.mappingType, adapter);
+                return true;
+            }
+            catch (NotSupportedException)
+            {
+            }
+
+            plan = null;
+            return false;
+        }
+
+        public object? Invoke(object? source, MappingContext context)
         {
             try
             {
-                var result = this.map((TSource?)source, context);
-                return new MappingResult(result, null, context);
+                return this.map((TSource?)source, context);
             }
             catch (Exception ex)
             {
-                var mappingException = new MappingException(this.typePair.SourceType, this.typePair.TargetType, this.mappingType, ex);
-                context.AddException(mappingException);
-                return new MappingResult(null, mappingException, context);
+                if (ex is MappingException or MissingMappingException)
+                {
+                    throw;
+                }
+
+                throw new MappingException(this.typePair.SourceType, this.typePair.TargetType, this.mappingType, ex);
             }
         }
     }
