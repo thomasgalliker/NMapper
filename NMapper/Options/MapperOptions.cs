@@ -1,23 +1,13 @@
-﻿using NMapper.Internals;
-
 namespace NMapper
 {
     public class MapperOptions
     {
-        private static readonly ICollectionFactory DefaultCollectionFactory = new FastCollectionFactory();
-
         public MapperOptions()
         {
             this.Mappings = Array.Empty<IMapping>();
         }
 
         public IMapping[] Mappings { get; set; }
-
-        /// <summary>
-        /// The factory used to construct new collections (arrays and lists).
-        /// Default: <seealso cref="FastCollectionFactory"/>
-        /// </summary>
-        public ICollectionFactory CollectionFactory { get; set; } = DefaultCollectionFactory;
 
         /// <summary>
         /// Enables tracking of object references during mapping.

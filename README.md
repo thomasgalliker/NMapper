@@ -224,6 +224,7 @@ HashSet<PersonDto>? personDtoSet = mapper.Map<HashSet<PersonDto>>(persons);
 
 You only define the item mapping once. NMapper handles the collection conversion.
 Common targets such as arrays, `List<T>`, `HashSet<T>`, `Collection<T>`, `IEnumerable<T>`, `ICollection<T>`, `IList<T>`, `IReadOnlyCollection<T>`, `IReadOnlyList<T>`, and `ISet<T>` are supported.
+That includes cross-collection mapping such as array `T[]` to `IEnumerable<T>`, `List<T>` to `Collection<T>`, or `List<T>` to `HashSet<T>`.
 
 ## Polymorphic Sources
 
