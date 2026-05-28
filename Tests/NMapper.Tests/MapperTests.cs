@@ -1,10 +1,4 @@
-﻿using System.Collections.ObjectModel;
-using AwesomeAssertions;
-using NMapper.TestData;
-using NMapper.TestData.Mappings;
-using Xunit;
-
-namespace NMapper.Tests
+﻿namespace NMapper.Tests
 {
     public partial class MapperTests
     {

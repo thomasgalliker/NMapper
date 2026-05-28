@@ -1,8 +1,4 @@
-﻿using AwesomeAssertions;
-using NMapper.Internals;
-using Xunit;
-
-namespace NMapper.Tests.Internals
+﻿namespace NMapper.Tests.Internals
 {
     public class CollectionMappingInfoTests
     {

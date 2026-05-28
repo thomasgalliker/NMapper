@@ -1,7 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
-using Xunit.Abstractions;
-
-namespace NMapper.Tests.Logging
+﻿namespace NMapper.Tests.Logging
 {
     public class TestOutputHelperLoggerFactory : ILoggerFactory
     {

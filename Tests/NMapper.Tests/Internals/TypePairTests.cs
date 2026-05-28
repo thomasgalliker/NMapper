@@ -1,7 +1,4 @@
-﻿using AwesomeAssertions;
-using Xunit;
-
-namespace NMapper.Tests
+﻿namespace NMapper.Tests
 {
     public class TypePairTests
     {
