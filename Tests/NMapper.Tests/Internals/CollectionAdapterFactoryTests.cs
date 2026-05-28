@@ -1,5 +1,5 @@
 ﻿using System.Collections.ObjectModel;
-using FluentAssertions;
+using AwesomeAssertions;
 using NMapper.Internals;
 using Xunit;
 

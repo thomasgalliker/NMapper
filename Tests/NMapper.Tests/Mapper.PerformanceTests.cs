@@ -1,5 +1,5 @@
 ﻿using System.Diagnostics;
-using FluentAssertions;
+using AwesomeAssertions;
 using NMapper.TestData;
 using Xunit;
 using Xunit.Abstractions;

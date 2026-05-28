@@ -1,0 +1,13 @@
+// Global using directives
+
+global using System.Collections.ObjectModel;
+global using System.Diagnostics;
+global using AwesomeAssertions;
+global using Microsoft.Extensions.DependencyInjection;
+global using Microsoft.Extensions.Logging;
+global using NMapper.Internals;
+global using NMapper.TestData;
+global using NMapper.TestData.Mappings;
+global using NMapper.Tests.Logging;
+global using Xunit;
+global using Xunit.Abstractions;
