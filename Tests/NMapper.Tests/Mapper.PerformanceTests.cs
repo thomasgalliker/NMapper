@@ -1,10 +1,4 @@
-﻿using System.Diagnostics;
-using FluentAssertions;
-using NMapper.TestData;
-using Xunit;
-using Xunit.Abstractions;
-
-namespace NMapper.Tests
+﻿namespace NMapper.Tests
 {
     public partial class MapperTests
     {

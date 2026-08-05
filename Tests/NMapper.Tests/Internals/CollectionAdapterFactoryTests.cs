@@ -1,9 +1,4 @@
-﻿using System.Collections.ObjectModel;
-using FluentAssertions;
-using NMapper.Internals;
-using Xunit;
-
-namespace NMapper.Tests.Internals
+﻿namespace NMapper.Tests.Internals
 {
     public sealed class CollectionAdapterFactoryTests
     {
