@@ -849,7 +849,7 @@
 
             IMapper mapper = new Mapper(mapperOptions);
 
-            var venue = Venue.GetRecursiveVenueTestData();
+            var venue = Venues.CreateRecursive();
 
             // Act
             mapper.Map<VenueDto>(venue);
@@ -874,7 +874,7 @@
 
             IMapper mapper = new Mapper(mapperOptions);
 
-            var venue = Venue.GetRecursiveVenueTestData();
+            var venue = Venues.CreateRecursive();
 
             // Act
             var venueDto = mapper.Map<VenueDto>(venue);
@@ -909,7 +909,7 @@
 
             IMapper mapper = new Mapper(mapperOptions);
 
-            var venue = Venue.GetRecursiveVenueTestData();
+            var venue = Venues.CreateRecursive();
 
             // Act
             var venueDto = mapper.Map<VenueDto>(venue, o => o.EnableRecursionHandling = true);
@@ -944,7 +944,7 @@
             };
 
             IMapper mapper = new Mapper(mapperOptions);
-            var venue = Venue.GetRecursiveVenueTestData();
+            var venue = Venues.CreateRecursive();
 
             // Act
             var venueDto = mapper.Map<VenueDto>(venue);
@@ -978,7 +978,7 @@
             };
 
             IMapper mapper = new Mapper(mapperOptions);
-            var venue = Venue.GetRecursiveVenueTestData();
+            var venue = Venues.CreateRecursive();
 
             // Act
             Action action = () => mapper.Map<VenueDto>(venue);
@@ -988,5 +988,363 @@
             ex.Message.Should().Contain("Maximum recursion depth exceeded");
         }
 
+        [Fact]
+        public void ShouldMap_WithRecursion_HashSetSourceCollectionToArray()
+        {
+            // Arrange
+            var mapperOptions = new MapperOptions
+            {
+                Mappings = new IMapping[]
+                {
+                    new GarageMapping(),
+                    new CarMapping(),
+                    new CarSummaryMapping(),
+                },
+                EnableRecursionHandling = true,
+            };
+
+            IMapper mapper = new Mapper(mapperOptions);
+
+            var garage = new Garage { Name = "Downtown" };
+            var car = new Car { Id = 1, Model = "Model S", Garage = garage };
+
+            // HashSet is deliberate: unlike List, Queue or SortedSet it does not implement the
+            // non-generic ICollection, so the array plan cannot read its count and has to buffer
+            // it. Replacing this with an array or a list would map a different code path.
+            garage.Cars = new HashSet<Car> { car };
+
+            // Act
+            var garageDto = mapper.Map<GarageDto>(garage);
+
+            // Assert
+            garageDto.Should().NotBeNull();
+            garageDto.Cars.Should().HaveCount(1);
+
+            var carDto = garageDto.Cars[0];
+            carDto.Model.Should().Be("Model S");
+
+            var nestedGarageDto = carDto.Garage;
+            nestedGarageDto.Should().NotBeNull();
+            nestedGarageDto!.Name.Should().Be("Downtown");
+
+            // The cycle must close against the very same target collection,
+            // which is only possible if the plan registered it before filling it.
+            nestedGarageDto.Cars.Should().BeSameAs(garageDto.Cars);
+
+            // Same source collection mapped by a context-free element mapping.
+            garageDto.CarSummaries.Should().HaveCount(1);
+            garageDto.CarSummaries[0].Text.Should().Be("<Model S>");
+            nestedGarageDto.CarSummaries.Should().BeSameAs(garageDto.CarSummaries);
+        }
+
+        [Fact]
+        public void ShouldMap_WithRecursion_LazyEnumerableSourceCollectionToArray()
+        {
+            // Arrange
+            var mapperOptions = new MapperOptions
+            {
+                Mappings = new IMapping[]
+                {
+                    new GarageMapping(),
+                    new CarMapping(),
+                    new CarSummaryMapping(),
+                },
+                EnableRecursionHandling = true,
+            };
+
+            IMapper mapper = new Mapper(mapperOptions);
+
+            var garage = new Garage { Name = "Downtown" };
+            var car = new Car { Id = 1, Model = "Model S", Garage = garage };
+
+            // Select keeps the sequence lazy: it is neither an array nor an ICollection, so its
+            // length is unknown up front and the array plan has to buffer it before it can
+            // register the target array. An array or a list would map a different code path.
+            garage.Cars = new[] { car }.Select(c => c);
+
+            // Act
+            var garageDto = mapper.Map<GarageDto>(garage);
+
+            // Assert
+            garageDto.Should().NotBeNull();
+            garageDto.Cars.Should().HaveCount(1);
+            garageDto.Cars[0].Garage!.Cars.Should().BeSameAs(garageDto.Cars);
+        }
+
+        [Fact]
+        public void ShouldMap_WithRecursion_SharedCollectionElement_PreservesIdentity()
+        {
+            // Arrange
+            var mapperOptions = new MapperOptions
+            {
+                Mappings = new IMapping[]
+                {
+                    new GarageMapping(),
+                    new CarMapping(),
+                    new CarSummaryMapping(),
+                },
+                EnableRecursionHandling = true,
+            };
+
+            IMapper mapper = new Mapper(mapperOptions);
+
+            var garage = new Garage { Name = "Downtown" };
+            var car = new Car { Id = 1, Model = "Model S", Garage = garage };
+            garage.Cars = new[] { car, car };
+
+            // Act
+            var garageDto = mapper.Map<GarageDto>(garage);
+
+            // Assert
+            garageDto.Cars.Should().HaveCount(2);
+            garageDto.Cars[0].Should().BeSameAs(garageDto.Cars[1]);
+
+            // Identity must hold on the context-free element path as well.
+            garageDto.CarSummaries.Should().HaveCount(2);
+            garageDto.CarSummaries[0].Should().BeSameAs(garageDto.CarSummaries[1]);
+        }
+
+        [Fact]
+        public void ShouldMap_WithRecursion_SameSourceToDifferentTargetTypes()
+        {
+            // Arrange
+            var mapperOptions = new MapperOptions
+            {
+                Mappings = new IMapping[]
+                {
+                    new GarageMapping(),
+                    new CarMapping(),
+                    new CarSummaryMapping(),
+                },
+                EnableRecursionHandling = true,
+            };
+
+            IMapper mapper = new Mapper(mapperOptions);
+
+            var garage = new Garage { Name = "Downtown" };
+            var car = new Car { Id = 1, Model = "Model S", Garage = garage };
+            garage.Cars = new[] { car };
+
+            // Act
+            var garageDto = mapper.Map<GarageDto>(garage);
+
+            // Assert
+            // The same source collection, and the same element within it, are mapped to two
+            // different target types within one root map call.
+            garageDto.Cars.Should().HaveCount(1);
+            garageDto.Cars[0].Model.Should().Be("Model S");
+            garageDto.CarSummaries.Should().HaveCount(1);
+            garageDto.CarSummaries[0].Text.Should().Be("<Model S>");
+        }
+
+        [Fact]
+        public void ShouldMap_WithRecursion_CycleWithoutCollection()
+        {
+            // Arrange
+            var mapperOptions = new MapperOptions
+            {
+                Mappings = new IMapping[]
+                {
+                    new OwnerMapping(),
+                    new CarMapping(),
+                },
+                EnableRecursionHandling = true,
+            };
+
+            IMapper mapper = new Mapper(mapperOptions);
+
+            var owner = new Owner { Id = 1, Name = "Jane Doe" };
+            owner.Car = new Car { Id = 1, Model = "Model S", Owner = owner };
+
+            // Act
+            var ownerDto = mapper.Map<OwnerDto>(owner);
+
+            // Assert
+            ownerDto.Should().NotBeNull();
+            ownerDto.Name.Should().Be("Jane Doe");
+
+            // No collection plan can register a target here, so the cycle is cut
+            // after the source/target pair has been visited MaxCycleVisits times.
+            ownerDto.Car.Should().NotBeNull();
+            ownerDto.Car!.Model.Should().Be("Model S");
+            ownerDto.Car.Owner.Should().NotBeNull();
+            ownerDto.Car.Owner!.Name.Should().Be("Jane Doe");
+            ownerDto.Car.Owner.Car.Should().NotBeNull();
+            ownerDto.Car.Owner.Car!.Owner.Should().BeNull();
+        }
+
+        [Fact]
+        public void ShouldMap_WithRecursion_CycleWithoutCollection_ThrowsException()
+        {
+            // Arrange
+            var mapperOptions = new MapperOptions
+            {
+                Mappings = new IMapping[]
+                {
+                    new OwnerMapping(),
+                    new CarMapping(),
+                },
+                EnableRecursionHandling = true,
+                ThrowIfMaxDepthExceeded = true,
+            };
+
+            IMapper mapper = new Mapper(mapperOptions);
+
+            var owner = new Owner { Id = 1, Name = "Jane Doe" };
+            owner.Car = new Car { Id = 1, Model = "Model S", Owner = owner };
+
+            // Act
+            Action action = () => mapper.Map<OwnerDto>(owner);
+
+            // Assert
+            var ex = action.Should().Throw<MappingException>().WithInnerException<InvalidOperationException>().Which;
+            ex.Message.Should().Contain("Unresolvable circular reference detected");
+        }
+
+        [Fact]
+        public void ShouldMap_WithRecursion_MaxCycleVisits_CutsCycleEarlier()
+        {
+            // Arrange
+            var mapperOptions = new MapperOptions
+            {
+                Mappings = new IMapping[]
+                {
+                    new OwnerMapping(),
+                    new CarMapping(),
+                },
+                EnableRecursionHandling = true,
+                MaxCycleVisits = 1,
+            };
+
+            IMapper mapper = new Mapper(mapperOptions);
+
+            var owner = new Owner { Id = 1, Name = "Jane Doe" };
+            owner.Car = new Car { Id = 1, Model = "Model S", Owner = owner };
+
+            // Act
+            var ownerDto = mapper.Map<OwnerDto>(owner);
+
+            // Assert
+            // With a single permitted visit the cycle is cut one level earlier than the default.
+            ownerDto.Name.Should().Be("Jane Doe");
+            ownerDto.Car.Should().NotBeNull();
+            ownerDto.Car!.Model.Should().Be("Model S");
+            ownerDto.Car.Owner.Should().BeNull();
+        }
+
+        [Fact]
+        public void ShouldMap_WithRecursion_MaxCycleVisits_BelowOneIsTreatedAsOne()
+        {
+            // Arrange
+            var mapperOptions = new MapperOptions
+            {
+                Mappings = new IMapping[]
+                {
+                    new OwnerMapping(),
+                    new CarMapping(),
+                },
+                EnableRecursionHandling = true,
+                MaxCycleVisits = 0,
+            };
+
+            IMapper mapper = new Mapper(mapperOptions);
+
+            var owner = new Owner { Id = 1, Name = "Jane Doe" };
+            owner.Car = new Car { Id = 1, Model = "Model S", Owner = owner };
+
+            // Act
+            var ownerDto = mapper.Map<OwnerDto>(owner);
+
+            // Assert
+            // A value below 1 must not cut the root mapping itself.
+            ownerDto.Should().NotBeNull();
+            ownerDto.Name.Should().Be("Jane Doe");
+            ownerDto.Car!.Owner.Should().BeNull();
+        }
+
+        [Fact]
+        public void ShouldMap_WithRecursion_MaxDepth_TruncatedCollectionElement_ThrowsException()
+        {
+            // Arrange
+            var mapperOptions = new MapperOptions
+            {
+                Mappings = new IMapping[]
+                {
+                    new GarageMapping(),
+                    new CarMapping(),
+                    new CarSummaryMapping(),
+                },
+                EnableRecursionHandling = true,
+                MaxDepth = 1,
+                ThrowIfMaxDepthExceeded = true,
+            };
+
+            IMapper mapper = new Mapper(mapperOptions);
+
+            var garage = new Garage { Name = "Downtown" };
+            var car = new Car { Id = 1, Model = "Model S", Garage = garage };
+            garage.Cars = new[] { car };
+
+            // Act
+            Action action = () => mapper.Map<GarageDto>(garage);
+
+            // Assert
+            // The depth limit is reached on a collection element, which must report the same way
+            // as any other mapped object rather than silently yielding a null element.
+            var ex = action.Should().Throw<MappingException>().WithInnerException<InvalidOperationException>().Which;
+            ex.Message.Should().Contain("Maximum recursion depth exceeded");
+        }
+
+        [Fact]
+        public void ShouldMap_WithRecursion_MaxDepth_DoesNotTruncateSiblings()
+        {
+            // Arrange
+            var mapperOptions = new MapperOptions
+            {
+                Mappings = new IMapping[]
+                {
+                    new GarageMapping(),
+                    new CarMapping(),
+                    new BrandMapping(),
+                    new CarSummaryMapping(),
+                },
+                MaxDepth = 2,
+            };
+
+            IMapper mapper = new Mapper(mapperOptions);
+
+            var garage = new Garage { Name = "Downtown" };
+            garage.CourtesyCar = new Car
+            {
+                Id = 1,
+                Model = "Model S",
+                Brand = new Brand { Id = 1, Name = "Tesla" },
+                Garage = garage,
+            };
+            garage.Cars = new[]
+            {
+                new Car { Id = 2, Model = "Model 3", Garage = garage },
+                new Car { Id = 3, Model = "Model X", Garage = garage },
+            };
+
+            // Act
+            var garageDto = mapper.Map<GarageDto>(garage);
+
+            // Assert
+            // The courtesy car and the cars all sit at the same depth, so truncating the courtesy
+            // car's branches must not consume the budget of the cars mapped after it.
+            garageDto.CourtesyCar.Should().NotBeNull();
+            garageDto.CourtesyCar!.Model.Should().Be("Model S");
+            garageDto.CourtesyCar.Brand.Should().BeNull();
+            garageDto.CourtesyCar.Garage.Should().BeNull();
+
+            garageDto.Cars.Should().HaveCount(2);
+            garageDto.Cars[0].Should().NotBeNull();
+            garageDto.Cars[0].Model.Should().Be("Model 3");
+            garageDto.Cars[0].Garage.Should().BeNull();
+            garageDto.Cars[1].Should().NotBeNull();
+            garageDto.Cars[1].Model.Should().Be("Model X");
+            garageDto.Cars[1].Garage.Should().BeNull();
+        }
     }
 }

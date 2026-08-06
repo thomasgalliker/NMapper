@@ -70,7 +70,7 @@
 - The naming convention for unit tests is `{ClassName}.Tests`.
 - Use xUnit as test framework.
 - Use AwesomeAssertions for asserts.
-- Use Moq, AutoMocker to setup and verify mocks.
+- Use Moq, AutoMocker to setup and verify mocks (if applicable).
 - All unit tests must follow the Arrange-Act-Assert (AAA) pattern.
 - Separate AAA sections with blank lines.
 - Use comments to separate each section:
@@ -84,8 +84,3 @@
 - Test both success and failure scenarios.
 - Include edge cases: null inputs, empty collections, boundary values, and error conditions.
 - Prioritize testing complex logic, error handling, and edge cases over trivial code.
-- Tests use following attributes, depending on their focus:
-    - For unit/class tests: `[Trait(Traits.Category, Traits.UnitTests)]`
-    - For integration tests: `[Trait(Traits.Category, Traits.IntegrationTests)]`
-    - For system/API tests: `[Trait(Traits.Category, Traits.SystemTests)]`
-- System/API tests must run sequentially, therefore we add `[Collection(Collections.SystemTests)]`

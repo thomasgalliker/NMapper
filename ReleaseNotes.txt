@@ -1,3 +1,19 @@
+2.3
+- Fixed a StackOverflowException when a circular reference ran through a source collection that is
+  neither an array nor an ICollection, such as HashSet<T> or a lazily evaluated sequence.
+- Circular references that do not run through a collection are now cut instead of overflowing the
+  stack. The new `MaxCycleVisits` option (default 2) controls how often the same source and target
+  type may be visited on one branch before the cycle is cut.
+- Fixed `MaxDepth` truncation consuming the depth budget of subsequent siblings.
+- Behavior change: `MaxDepth` now counts the elements of a collection, while the collection itself
+  no longer consumes a depth level. Existing `MaxDepth` values may truncate at different points.
+- `EnableRecursionHandling` now also tracks collection elements, so an instance that occurs several
+  times within one root map call is mapped once and shared.
+- Fixed an InvalidCastException when the same source object was mapped to two different target
+  types within a single root map call.
+- `ThrowIfMaxDepthExceeded` is now also honored when the depth limit is reached on a collection
+  element, which previously produced a null element instead of an exception.
+
 2.2
 - Improved collection mapping performance.
 - Refactored internal mapping structure to favor mapping performance.

@@ -176,68 +176,79 @@ namespace NMapper
 
             var typePair = new TypePair(sourceType, typeof(TTarget));
 
-            // Recursion detection
-            if (!context.TryEnter(source))
+            if (context.TryGetMappedObject(source, typeof(TTarget), out var cached))
             {
-                if (context.ThrowIfMaxDepthExceeded)
-                {
-                    throw new MappingException(
-                        sourceType,
-                        typeof(TTarget),
-                        this.GetType(),
-                        new InvalidOperationException($"Maximum recursion depth exceeded (MaxDepth: {context.MaxDepth})."));
-                }
-
-                return default;
+                return (TTarget?)cached;
             }
 
-            try
+            if (this.map.TryGetValue(typePair, out var invoker))
             {
-                if (context.TryGetMappedObject(source, out var cached))
+                // Only mapped objects count towards the depth limit. A collection is a container,
+                // not a level of the object graph, so the plan below does not enter the context;
+                // its elements do, via FastCollectionMappingPlan.MapItem.
+                if (!context.TryEnter(source))
                 {
-                    return (TTarget?)cached;
+                    if (context.ThrowIfMaxDepthExceeded)
+                    {
+                        throw new MappingException(
+                            sourceType,
+                            typeof(TTarget),
+                            this.GetType(),
+                            new InvalidOperationException($"Maximum recursion depth exceeded (MaxDepth: {context.MaxDepth})."));
+                    }
+
+                    return default;
                 }
 
-                if (this.TryExecuteExplicitMapping(source, typePair, context, out var explicitResult))
+                // A mapping returns a fully constructed target, so it can only be cached once it has
+                // completed. Cut circular references that the reference cache cannot resolve on its own.
+                if (!context.TryBeginCycle(source, typeof(TTarget)))
                 {
+                    context.Exit(source);
+
+                    if (context.ThrowIfMaxDepthExceeded)
+                    {
+                        throw new MappingException(
+                            sourceType,
+                            typeof(TTarget),
+                            this.GetType(),
+                            new InvalidOperationException(
+                                $"Unresolvable circular reference detected: '{sourceType}' is already being mapped to '{typeof(TTarget)}' on this branch of the object graph."));
+                    }
+
+                    return default;
+                }
+
+                try
+                {
+                    var explicitResult = invoker.Invoke(source, context);
                     if (explicitResult is not null)
                     {
-                        context.StoreMappedObject(source, explicitResult);
+                        context.StoreMappedObject(source, typeof(TTarget), explicitResult);
                     }
 
                     return (TTarget?)explicitResult;
                 }
-
-                if (this.TryExecuteCompiledCollectionMappingPlan<TTarget>(source, typePair, context, out var compiledCollectionResult))
+                finally
                 {
-                    return compiledCollectionResult;
-                }
-
-                var collectionMappingInfo = this.collectionMappingInfoCache.GetOrAdd(typePair, this.CreateCollectionMappingInfo);
-                if (collectionMappingInfo.Kind == CollectionMappingKind.Array ||
-                    collectionMappingInfo.Kind == CollectionMappingKind.Enumerable)
-                {
-                    throw new MissingMappingException(collectionMappingInfo.ElementTypePair.SourceType, collectionMappingInfo.ElementTypePair.TargetType);
+                    context.EndCycle(source, typeof(TTarget));
+                    context.Exit(source);
                 }
             }
-            finally
+
+            if (this.TryExecuteCompiledCollectionMappingPlan<TTarget>(source, typePair, context, out var compiledCollectionResult))
             {
-                context.Exit(source);
+                return compiledCollectionResult;
+            }
+
+            var collectionMappingInfo = this.collectionMappingInfoCache.GetOrAdd(typePair, this.CreateCollectionMappingInfo);
+            if (collectionMappingInfo.Kind == CollectionMappingKind.Array ||
+                collectionMappingInfo.Kind == CollectionMappingKind.Enumerable)
+            {
+                throw new MissingMappingException(collectionMappingInfo.ElementTypePair.SourceType, collectionMappingInfo.ElementTypePair.TargetType);
             }
 
             throw new MissingMappingException(sourceType, typePair.TargetType);
-        }
-
-        private bool TryExecuteExplicitMapping(object? source, TypePair typePair, MappingContext context, out object? result)
-        {
-            if (this.map.TryGetValue(typePair, out var map))
-            {
-                result = map.Invoke(source, context);
-                return true;
-            }
-
-            result = null;
-            return false;
         }
 
         private bool TryExecuteCompiledCollectionMappingPlan<TTarget>(object? source, TypePair typePair, MappingContext context, out TTarget? result)
@@ -257,7 +268,7 @@ namespace NMapper
                 return false;
             }
 
-            result = (TTarget?)plan.Map(source!, context);
+            result = (TTarget?)plan.Map(source!, typePair.TargetType, context);
             return true;
         }
 

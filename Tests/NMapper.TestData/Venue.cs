@@ -7,21 +7,6 @@ namespace NMapper.TestData
         public string Name { get; set; } = string.Empty;
 
         public WaterArea[] Areas { get; set; } = Array.Empty<WaterArea>();
-
-        public static Venue GetRecursiveVenueTestData()
-        {
-            var venue = new Venue
-            {
-                Name = "Lake"
-            };
-            var area = new WaterArea
-            {
-                Name = "North",
-                Venue = venue
-            };
-            venue.Areas = new[] { area };
-            return venue;
-        }
     }
 
     public sealed class WaterArea

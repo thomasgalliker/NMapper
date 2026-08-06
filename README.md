@@ -348,6 +348,59 @@ var mapper = new Mapper(new MapperOptions
 > [!WARNING]
 > Recursion handling has a runtime cost and should only be enabled when needed.
 
+### What recursion handling guarantees
+
+With `EnableRecursionHandling` turned on, NMapper caches each mapped object under its source
+instance and requested target type, and reuses that cache when the same pair is requested again
+within one root `Map` call. This means:
+
+- Circular graphs terminate instead of overflowing the stack.
+- A collection that appears more than once in a graph is mapped once and shared.
+- An element that appears more than once inside a collection is mapped once and shared.
+
+There is one limit worth knowing about. A mapping hands back a fully constructed target:
+
+```csharp
+public SkipperDto Map(Skipper source, IMappingContext context)
+{
+    return new SkipperDto
+    {
+        Name = source.Name,
+        Licence = context.Map<LicenceDto>(source.Licence),
+    };
+}
+```
+
+NMapper can only cache `SkipperDto` once `Map` has returned, and `Map` cannot return until the
+nested `LicenceDto` is finished. For a cycle that runs purely through single references
+(`Skipper` → `Licence` → `Skipper`) the cache therefore never gets a chance to break the loop.
+NMapper bounds these cycles instead: once the same source and target type has been visited
+`MaxCycleVisits` times on one branch (default 2), the reference is set to `null` — or, with
+`ThrowIfMaxDepthExceeded`, a `MappingException` reporting an unresolvable circular reference is
+thrown.
+
+Lower `MaxCycleVisits` to 1 to cut such cycles as early as possible:
+
+```csharp
+var mapper = new Mapper(new MapperOptions
+{
+    EnableRecursionHandling = true,
+    MaxCycleVisits = 1,
+    Mappings = new IMapping[] { new SkipperMapping(), new LicenceMapping() }
+});
+```
+
+Note that a cycle running through a collection resolves on its *second* visit, so values below 2
+also cut those graphs, which would otherwise have completed.
+
+Cycles that run through a collection do not have this limitation. A collection is created by
+NMapper itself, so it is registered before its elements are mapped and the cycle closes against
+the real target collection.
+
+Because the target object of a cycle cannot be registered before it is built, the mapped graph may
+contain more than one target instance for the same source. Use `MaxDepth` to cap how deep such
+graphs are traversed.
+
 ## Exceptions
 
 NMapper throws explicit exceptions when something is missing or invalid:
