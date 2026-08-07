@@ -2,12 +2,12 @@
 
 namespace NMapper.TestData
 {
-    [DebuggerDisplay("{this.Name}", Type = "Address")]
+    [DebuggerDisplay("{this.City}", Type = "Address")]
     public class Address
     {
         public string? Street { get; set; }
 
-        public string? Place { get; set; }
+        public string? City { get; set; }
 
         public int ZipCode { get; set; }
     }

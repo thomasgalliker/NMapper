@@ -17,7 +17,6 @@
             {
                 new SourceToTargetCollectionsMapping(),
                 new ItemMapping(),
-                new ListItemMapping()
             };
             IMapper mapper = new Mapper(mappings);
 

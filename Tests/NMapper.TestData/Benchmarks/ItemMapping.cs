@@ -1,4 +1,4 @@
-﻿namespace NMapper.TestData
+﻿namespace NMapper.TestData.Benchmarks
 {
     public class ItemMapping : IMapping<Item, ItemDto>
     {

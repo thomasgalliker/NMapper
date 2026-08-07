@@ -5,6 +5,7 @@ global using Microsoft.Extensions.DependencyInjection;
 global using Microsoft.Extensions.Logging;
 global using NMapper.Internals;
 global using NMapper.TestData;
+global using NMapper.TestData.Benchmarks;
 global using NMapper.TestData.Mappings;
 global using NMapper.Tests.Logging;
 global using Xunit;

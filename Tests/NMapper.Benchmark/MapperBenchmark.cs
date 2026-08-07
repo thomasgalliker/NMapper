@@ -4,6 +4,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Nelibur.ObjectMapper;
 using NMapper;
 using NMapper.TestData;
+using NMapper.TestData.Benchmarks;
+using NMapper.TestData.Mappings;
 using System.Linq;
 
 namespace Benchmark
@@ -36,7 +38,7 @@ namespace Benchmark
             {
                 x.CreateMap<SourceWithCollections, TargetWithCollections>();
                 x.CreateMap<Item, ItemDto>();
-                x.CreateMap<Address, string?>().ConvertUsing(source => source.Place);
+                x.CreateMap<Address, string?>().ConvertUsing(source => source.City);
                 x.CreateMap<Country, CountryDto>();
                 x.CreateMap<Person, PersonDto>();
                 x.CreateMap<decimal?, double>().ConvertUsing(source => source.HasValue ? (double)source.Value : double.NaN);
@@ -53,7 +55,7 @@ namespace Benchmark
                 new ItemMapping(),
                 new CountryMapping(),
                 new PersonMapping(),
-                new DelegateMapping<Address, string?>(source => source.Place),
+                new DelegateMapping<Address, string?>(source => source.City),
                 new DelegateMapping<decimal?, double>(source => source.HasValue ? (double)source.Value : double.NaN),
             };
 
@@ -174,7 +176,7 @@ namespace Benchmark
                         Id = source.Country.Id,
                         Name = source.Country.Name,
                     },
-                Address = source.Address?.Place,
+                Address = source.Address?.City,
             };
         }
 
@@ -232,7 +234,7 @@ namespace Benchmark
                     Address = new Address
                     {
                         Street = "Analytical Engine Way",
-                        Place = "London",
+                        City = "London",
                         ZipCode = 1000,
                     },
                     Country = new Country

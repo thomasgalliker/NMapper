@@ -231,12 +231,12 @@ That includes cross-collection mapping such as array `T[]` to `IEnumerable<T>`, 
 The generic overload `Map<TSource, TTarget>()` respects the runtime type of reference-type inputs.
 
 ```csharp
-Person person = new Employee { Name = "Jane Doe" };
+Person person = new Child { Name = "Jane Doe" };
 
 PersonDto dto = mapper.Map<Person, PersonDto>(person);
 ```
 
-If an `Employee -> PersonDto` mapping is registered, NMapper will use it for the example above.
+If a `Child -> PersonDto` mapping is registered, NMapper will use it for the example above.
 
 ## Registration Options
 

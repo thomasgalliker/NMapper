@@ -2,7 +2,6 @@
 using Microsoft.Extensions.Logging;
 using NMapper;
 using NMapper.TestData;
-using NMapper.TestData.Mappings;
 
 namespace NMapperConsoleApp
 {
@@ -21,9 +20,6 @@ namespace NMapperConsoleApp
             services.AddMapping(o =>
             {
                 o.Mappings.ScanAssembly(typeof(Person).Assembly);
-                //o.Mappings.Add(new PersonMapping());
-                //o.Mappings.Add(new PersonMapping(), new VenueMapping());
-                //o.Mappings.Add(new IMapping[] { new PersonMapping(), new VenueMapping() });
                 o.ServiceLifetime = ServiceLifetime.Singleton;
             });
 

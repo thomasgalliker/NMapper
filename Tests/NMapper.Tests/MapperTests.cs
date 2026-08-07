@@ -70,7 +70,6 @@
             {
                 Id = 1,
                 Name = "John Doe",
-                CountryId = 2,
                 Country = new Country
                 {
                     Id = 2,
@@ -103,7 +102,10 @@
             mapper.RegisterMapping(new PersonMapping());
 
             // Assert
-            mapper.Mappings.Should().HaveCount(1);
+            // PersonMapping maps in both directions, so registering it registers two type pairs.
+            mapper.Mappings.Should().HaveCount(2);
+            mapper.Mappings.Should().Contain(x => x.SourceType == typeof(Person) && x.TargetType == typeof(PersonDto));
+            mapper.Mappings.Should().Contain(x => x.SourceType == typeof(PersonDto) && x.TargetType == typeof(Person));
         }
 
         [Fact]
@@ -154,7 +156,6 @@
             {
                 Id = 1,
                 Name = "John Doe",
-                CountryId = 0,
                 Country = null,
             };
 
@@ -169,20 +170,46 @@
         }
 
         [Fact]
+        public void ShouldMap_PersonDtoToPerson_UsesReverseDirectionOfSameMapping()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new PersonMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            var personDto = new PersonDto
+            {
+                Id = 1,
+                Name = "John Doe",
+            };
+
+            // Act
+            var person = mapper.Map<Person>(personDto);
+
+            // Assert
+            // PersonMapping declares both directions, and both are registered from the one instance.
+            person.Should().NotBeNull();
+            person.Id.Should().Be(personDto.Id);
+            person.Name.Should().Be(personDto.Name);
+        }
+
+        [Fact]
         public void ShouldMap_GenericOverload_UsesRuntimeTypeForDerivedSource()
         {
             // Arrange
             var mappings = new IMapping[]
             {
                 new PersonMapping(),
-                new EmployeeMapping(),
+                new ChildMapping(),
             };
             IMapper mapper = new Mapper(mappings);
 
-            Person person = new Employee
+            Person person = new Child
             {
                 Name = "Jane Doe",
-                EmployeeNumber = "E-100",
+                SchoolName = "Sunnyside",
             };
 
             // Act
@@ -191,7 +218,7 @@
             // Assert
             personDto.Should().NotBeNull();
             personDto.Name.Should().Be("Jane Doe");
-            personDto.Address.Should().Contain("E-100");
+            personDto.Address.Should().Contain("Sunnyside");
         }
 
         [Fact]
@@ -200,23 +227,23 @@
             // Arrange
             var mappings = new IMapping[]
             {
-                new EmployeeMapping(),
+                new ChildMapping(),
             };
             IMapper mapper = new Mapper(mappings);
 
-            IIdentifiable employee = new Employee
+            IIdentifiable child = new Child
             {
                 Name = "John Doe",
-                EmployeeNumber = "E-200",
+                SchoolName = "Riverside",
             };
 
             // Act
-            var personDto = mapper.Map<IIdentifiable, PersonDto>(employee);
+            var personDto = mapper.Map<IIdentifiable, PersonDto>(child);
 
             // Assert
             personDto.Should().NotBeNull();
             personDto.Name.Should().Be("John Doe");
-            personDto.Address.Should().Contain("E-200");
+            personDto.Address.Should().Contain("Riverside");
         }
 
         [Fact]
@@ -227,19 +254,17 @@
             {
                 new FamilyMapping(),
                 new PersonMapping(),
-                new EmployeeMapping(),
+                new PersonSummaryMapping(),
+                new ChildMapping(),
             };
             IMapper mapper = new Mapper(mappings);
 
             var family = new Family
             {
-                Members =
+                Head = new Child
                 {
-                    new Employee
-                    {
-                        Name = "Jane Doe",
-                        EmployeeNumber = "E-300",
-                    },
+                    Name = "Jane Doe",
+                    SchoolName = "Hillcrest",
                 },
             };
 
@@ -248,9 +273,47 @@
 
             // Assert
             familyDto.Should().NotBeNull();
+            familyDto.Head.Should().NotBeNull();
+            familyDto.Head!.Name.Should().Be("Jane Doe");
+            familyDto.Head.Address.Should().Contain("Hillcrest");
+        }
+
+        [Fact]
+        public void ShouldMap_CollectionElement_UsesDeclaredElementTypeForDerivedSource()
+        {
+            // Arrange
+            var mappings = new IMapping[]
+            {
+                new FamilyMapping(),
+                new PersonMapping(),
+                new PersonSummaryMapping(),
+                new ChildMapping(),
+            };
+            IMapper mapper = new Mapper(mappings);
+
+            var child = new Child
+            {
+                Name = "Jane Doe",
+                SchoolName = "Hillcrest",
+            };
+            var family = new Family
+            {
+                Head = child,
+                Members = new Person[] { child },
+            };
+
+            // Act
+            var familyDto = mapper.Map<FamilyDto>(family);
+
+            // Assert
+            // A collection mapping plan is bound to one concrete element mapping when it is built,
+            // so it does not dispatch on the runtime type of an element. The very same child is
+            // mapped by ChildMapping as the head of the family, but by PersonMapping as a member.
+            familyDto.Head!.Address.Should().Contain("Hillcrest");
+
             familyDto.Members.Should().ContainSingle();
             familyDto.Members[0].Name.Should().Be("Jane Doe");
-            familyDto.Members[0].Address.Should().Contain("E-300");
+            familyDto.Members[0].Address.Should().BeNull();
         }
 
         [Fact]
@@ -276,7 +339,6 @@
                 {
                     Id = i,
                     Name = $"Person {i}",
-                    CountryId = country.Id,
                     Country = country,
                     Address = null,
                 }).ToArray();
@@ -313,12 +375,11 @@
                 {
                     Id = i,
                     Name = $"Person {i}",
-                    CountryId = country.Id,
                     Country = country,
                     Address = new Address
                     {
                         Street = "123 Main St",
-                        Place = "Toronto",
+                        City = "Toronto",
                         ZipCode = 12345
                     }
                 }).ToArray();
@@ -353,7 +414,6 @@
                 {
                     Id = i,
                     Name = $"Person {i}",
-                    CountryId = country.Id,
                     Country = country,
                 }).ToArray();
 
@@ -388,7 +448,6 @@
                 {
                     Id = i,
                     Name = $"Person {i}",
-                    CountryId = country.Id,
                     Country = country,
                 });
 
@@ -424,7 +483,6 @@
                 {
                     Id = i,
                     Name = $"Person {i}",
-                    CountryId = country.Id,
                     Country = country,
                 })
                 .ToArray();
@@ -446,7 +504,7 @@
             {
                 new CountryMapping(),
                 new PersonMapping(),
-                new DelegateMapping<Address, string?>(source => source.Place),
+                new DelegateMapping<Address, string?>(source => source.City),
             };
             IMapper mapper = new Mapper(mappings);
 
@@ -458,7 +516,7 @@
                     Name = "Person 1",
                     Address = new Address
                     {
-                        Place = "Bern",
+                        City = "Bern",
                     },
                     Country = new Country
                     {
@@ -472,7 +530,7 @@
                     Name = "Person 2",
                     Address = new Address
                     {
-                        Place = "Zurich",
+                        City = "Zurich",
                     },
                     Country = new Country
                     {
@@ -516,7 +574,6 @@
                 {
                     Id = i,
                     Name = $"Person {i}",
-                    CountryId = country.Id,
                     Country = country,
                 })
                 .ToList();
@@ -552,7 +609,6 @@
                 {
                     Id = i,
                     Name = $"Person {i}",
-                    CountryId = country.Id,
                     Country = country,
                 })
                 .ToList();
@@ -588,7 +644,6 @@
                 {
                     Id = i,
                     Name = $"Person {i}",
-                    CountryId = country.Id,
                     Country = country,
                 })
                 .ToArray();
@@ -624,7 +679,6 @@
                 {
                     Id = i,
                     Name = $"Person {i}",
-                    CountryId = country.Id,
                     Country = country,
                 })
                 .ToList();
@@ -660,7 +714,6 @@
                 {
                     Id = i,
                     Name = $"Person {i}",
-                    CountryId = country.Id,
                     Country = country,
                 })
                 .ToList();
@@ -696,7 +749,6 @@
                 {
                     Id = i,
                     Name = $"Person {i}",
-                    CountryId = country.Id,
                     Country = country,
                 })
                 .ToList();
@@ -842,17 +894,18 @@
                 EnableRecursionHandling = false,
                 Mappings = new IMapping[]
                 {
-                    new VenueMapping(),
-                    new WaterAreaMapping(),
+                    new FamilyMapping(),
+                    new PersonMapping(),
+                    new PersonSummaryMapping(),
                 }
             };
 
             IMapper mapper = new Mapper(mapperOptions);
 
-            var venue = Venues.CreateRecursive();
+            var family = Families.CreateRecursive();
 
             // Act
-            mapper.Map<VenueDto>(venue);
+            mapper.Map<FamilyDto>(family);
 
             // Assert
             // Debug and observe the StackOverflowException
@@ -866,31 +919,32 @@
             {
                 Mappings = new IMapping[]
                 {
-                    new VenueMapping(),
-                    new WaterAreaMapping(),
+                    new FamilyMapping(),
+                    new PersonMapping(),
+                    new PersonSummaryMapping(),
                 },
                 EnableRecursionHandling = true,
             };
 
             IMapper mapper = new Mapper(mapperOptions);
 
-            var venue = Venues.CreateRecursive();
+            var family = Families.CreateRecursive();
 
             // Act
-            var venueDto = mapper.Map<VenueDto>(venue);
+            var familyDto = mapper.Map<FamilyDto>(family);
 
             // Assert
-            venueDto.Should().NotBeNull();
-            venueDto.Name.Should().Be("Lake");
-            venueDto.Areas.Should().HaveCount(1);
+            familyDto.Should().NotBeNull();
+            familyDto.Name.Should().Be("Miller");
+            familyDto.Members.Should().HaveCount(1);
 
-            var waterAreaDto = venueDto.Areas[0];
-            waterAreaDto.Name.Should().Be("North");
+            var memberDto = familyDto.Members[0];
+            memberDto.Name.Should().Be("John");
 
-            var nestedVenueDto = waterAreaDto.Venue;
-            nestedVenueDto.Should().NotBeNull();
-            nestedVenueDto.Name.Should().Be("Lake");
-            nestedVenueDto.Areas.Should().HaveCount(1);
+            var nestedFamilyDto = memberDto.Family;
+            nestedFamilyDto.Should().NotBeNull();
+            nestedFamilyDto!.Name.Should().Be("Miller");
+            nestedFamilyDto.Members.Should().HaveCount(1);
         }
 
         [Fact]
@@ -901,31 +955,32 @@
             {
                 Mappings = new IMapping[]
                 {
-                    new VenueMapping(),
-                    new WaterAreaMapping(),
+                    new FamilyMapping(),
+                    new PersonMapping(),
+                    new PersonSummaryMapping(),
                 },
                 EnableRecursionHandling = false,
             };
 
             IMapper mapper = new Mapper(mapperOptions);
 
-            var venue = Venues.CreateRecursive();
+            var family = Families.CreateRecursive();
 
             // Act
-            var venueDto = mapper.Map<VenueDto>(venue, o => o.EnableRecursionHandling = true);
+            var familyDto = mapper.Map<FamilyDto>(family, o => o.EnableRecursionHandling = true);
 
             // Assert
-            venueDto.Should().NotBeNull();
-            venueDto.Name.Should().Be("Lake");
-            venueDto.Areas.Should().HaveCount(1);
+            familyDto.Should().NotBeNull();
+            familyDto.Name.Should().Be("Miller");
+            familyDto.Members.Should().HaveCount(1);
 
-            var waterAreaDto = venueDto.Areas[0];
-            waterAreaDto.Name.Should().Be("North");
+            var memberDto = familyDto.Members[0];
+            memberDto.Name.Should().Be("John");
 
-            var nestedVenueDto = waterAreaDto.Venue;
-            nestedVenueDto.Should().NotBeNull();
-            nestedVenueDto.Name.Should().Be("Lake");
-            nestedVenueDto.Areas.Should().HaveCount(1);
+            var nestedFamilyDto = memberDto.Family;
+            nestedFamilyDto.Should().NotBeNull();
+            nestedFamilyDto!.Name.Should().Be("Miller");
+            nestedFamilyDto.Members.Should().HaveCount(1);
         }
 
         [Fact]
@@ -936,29 +991,30 @@
             {
                 Mappings = new IMapping[]
                 {
-                    new VenueMapping(),
-                    new WaterAreaMapping(),
+                    new FamilyMapping(),
+                    new PersonMapping(),
+                    new PersonSummaryMapping(),
                 },
                 EnableRecursionHandling = true,
                 MaxDepth = 2,
             };
 
             IMapper mapper = new Mapper(mapperOptions);
-            var venue = Venues.CreateRecursive();
+            var family = Families.CreateRecursive();
 
             // Act
-            var venueDto = mapper.Map<VenueDto>(venue);
+            var familyDto = mapper.Map<FamilyDto>(family);
 
             // Assert
-            venueDto.Should().NotBeNull();
-            venueDto.Name.Should().Be("Lake");
-            venueDto.Areas.Should().HaveCount(1);
+            // The family is the first level and its members are the second. A collection is a
+            // container rather than a level of the graph, so it does not consume any budget.
+            familyDto.Should().NotBeNull();
+            familyDto.Name.Should().Be("Miller");
+            familyDto.Members.Should().HaveCount(1);
 
-            var waterAreaDto = venueDto.Areas[0];
-            waterAreaDto.Name.Should().Be("North");
-
-            var nestedVenueDto = waterAreaDto.Venue;
-            nestedVenueDto.Should().BeNull();
+            var memberDto = familyDto.Members[0];
+            memberDto.Name.Should().Be("John");
+            memberDto.Family.Should().BeNull();
         }
 
         [Fact]
@@ -969,8 +1025,9 @@
             {
                 Mappings = new IMapping[]
                 {
-                    new VenueMapping(),
-                    new WaterAreaMapping(),
+                    new FamilyMapping(),
+                    new PersonMapping(),
+                    new PersonSummaryMapping(),
                 },
                 EnableRecursionHandling = true,
                 MaxDepth = 2,
@@ -978,10 +1035,10 @@
             };
 
             IMapper mapper = new Mapper(mapperOptions);
-            var venue = Venues.CreateRecursive();
+            var family = Families.CreateRecursive();
 
             // Act
-            Action action = () => mapper.Map<VenueDto>(venue);
+            Action action = () => mapper.Map<FamilyDto>(family);
 
             // Assert
             var ex = action.Should().Throw<MappingException>().WithInnerException<InvalidOperationException>().Which;
@@ -996,45 +1053,45 @@
             {
                 Mappings = new IMapping[]
                 {
-                    new GarageMapping(),
-                    new CarMapping(),
-                    new CarSummaryMapping(),
+                    new FamilyMapping(),
+                    new PersonMapping(),
+                    new PersonSummaryMapping(),
                 },
                 EnableRecursionHandling = true,
             };
 
             IMapper mapper = new Mapper(mapperOptions);
 
-            var garage = new Garage { Name = "Downtown" };
-            var car = new Car { Id = 1, Model = "Model S", Garage = garage };
+            var family = new Family { Name = "Miller" };
+            var person = new Person { Id = 1, Name = "John", Family = family };
 
             // HashSet is deliberate: unlike List, Queue or SortedSet it does not implement the
             // non-generic ICollection, so the array plan cannot read its count and has to buffer
             // it. Replacing this with an array or a list would map a different code path.
-            garage.Cars = new HashSet<Car> { car };
+            family.Members = new HashSet<Person> { person };
 
             // Act
-            var garageDto = mapper.Map<GarageDto>(garage);
+            var familyDto = mapper.Map<FamilyDto>(family);
 
             // Assert
-            garageDto.Should().NotBeNull();
-            garageDto.Cars.Should().HaveCount(1);
+            familyDto.Should().NotBeNull();
+            familyDto.Members.Should().HaveCount(1);
 
-            var carDto = garageDto.Cars[0];
-            carDto.Model.Should().Be("Model S");
+            var memberDto = familyDto.Members[0];
+            memberDto.Name.Should().Be("John");
 
-            var nestedGarageDto = carDto.Garage;
-            nestedGarageDto.Should().NotBeNull();
-            nestedGarageDto!.Name.Should().Be("Downtown");
+            var nestedFamilyDto = memberDto.Family;
+            nestedFamilyDto.Should().NotBeNull();
+            nestedFamilyDto!.Name.Should().Be("Miller");
 
             // The cycle must close against the very same target collection,
             // which is only possible if the plan registered it before filling it.
-            nestedGarageDto.Cars.Should().BeSameAs(garageDto.Cars);
+            nestedFamilyDto.Members.Should().BeSameAs(familyDto.Members);
 
             // Same source collection mapped by a context-free element mapping.
-            garageDto.CarSummaries.Should().HaveCount(1);
-            garageDto.CarSummaries[0].Text.Should().Be("<Model S>");
-            nestedGarageDto.CarSummaries.Should().BeSameAs(garageDto.CarSummaries);
+            familyDto.MemberSummaries.Should().HaveCount(1);
+            familyDto.MemberSummaries[0].Text.Should().Be("<John>");
+            nestedFamilyDto.MemberSummaries.Should().BeSameAs(familyDto.MemberSummaries);
         }
 
         [Fact]
@@ -1045,30 +1102,30 @@
             {
                 Mappings = new IMapping[]
                 {
-                    new GarageMapping(),
-                    new CarMapping(),
-                    new CarSummaryMapping(),
+                    new FamilyMapping(),
+                    new PersonMapping(),
+                    new PersonSummaryMapping(),
                 },
                 EnableRecursionHandling = true,
             };
 
             IMapper mapper = new Mapper(mapperOptions);
 
-            var garage = new Garage { Name = "Downtown" };
-            var car = new Car { Id = 1, Model = "Model S", Garage = garage };
+            var family = new Family { Name = "Miller" };
+            var person = new Person { Id = 1, Name = "John", Family = family };
 
             // Select keeps the sequence lazy: it is neither an array nor an ICollection, so its
             // length is unknown up front and the array plan has to buffer it before it can
             // register the target array. An array or a list would map a different code path.
-            garage.Cars = new[] { car }.Select(c => c);
+            family.Members = new[] { person }.Select(p => p);
 
             // Act
-            var garageDto = mapper.Map<GarageDto>(garage);
+            var familyDto = mapper.Map<FamilyDto>(family);
 
             // Assert
-            garageDto.Should().NotBeNull();
-            garageDto.Cars.Should().HaveCount(1);
-            garageDto.Cars[0].Garage!.Cars.Should().BeSameAs(garageDto.Cars);
+            familyDto.Should().NotBeNull();
+            familyDto.Members.Should().HaveCount(1);
+            familyDto.Members[0].Family!.Members.Should().BeSameAs(familyDto.Members);
         }
 
         [Fact]
@@ -1079,29 +1136,29 @@
             {
                 Mappings = new IMapping[]
                 {
-                    new GarageMapping(),
-                    new CarMapping(),
-                    new CarSummaryMapping(),
+                    new FamilyMapping(),
+                    new PersonMapping(),
+                    new PersonSummaryMapping(),
                 },
                 EnableRecursionHandling = true,
             };
 
             IMapper mapper = new Mapper(mapperOptions);
 
-            var garage = new Garage { Name = "Downtown" };
-            var car = new Car { Id = 1, Model = "Model S", Garage = garage };
-            garage.Cars = new[] { car, car };
+            var family = new Family { Name = "Miller" };
+            var person = new Person { Id = 1, Name = "John", Family = family };
+            family.Members = new[] { person, person };
 
             // Act
-            var garageDto = mapper.Map<GarageDto>(garage);
+            var familyDto = mapper.Map<FamilyDto>(family);
 
             // Assert
-            garageDto.Cars.Should().HaveCount(2);
-            garageDto.Cars[0].Should().BeSameAs(garageDto.Cars[1]);
+            familyDto.Members.Should().HaveCount(2);
+            familyDto.Members[0].Should().BeSameAs(familyDto.Members[1]);
 
             // Identity must hold on the context-free element path as well.
-            garageDto.CarSummaries.Should().HaveCount(2);
-            garageDto.CarSummaries[0].Should().BeSameAs(garageDto.CarSummaries[1]);
+            familyDto.MemberSummaries.Should().HaveCount(2);
+            familyDto.MemberSummaries[0].Should().BeSameAs(familyDto.MemberSummaries[1]);
         }
 
         [Fact]
@@ -1112,29 +1169,29 @@
             {
                 Mappings = new IMapping[]
                 {
-                    new GarageMapping(),
-                    new CarMapping(),
-                    new CarSummaryMapping(),
+                    new FamilyMapping(),
+                    new PersonMapping(),
+                    new PersonSummaryMapping(),
                 },
                 EnableRecursionHandling = true,
             };
 
             IMapper mapper = new Mapper(mapperOptions);
 
-            var garage = new Garage { Name = "Downtown" };
-            var car = new Car { Id = 1, Model = "Model S", Garage = garage };
-            garage.Cars = new[] { car };
+            var family = new Family { Name = "Miller" };
+            var person = new Person { Id = 1, Name = "John", Family = family };
+            family.Members = new[] { person };
 
             // Act
-            var garageDto = mapper.Map<GarageDto>(garage);
+            var familyDto = mapper.Map<FamilyDto>(family);
 
             // Assert
             // The same source collection, and the same element within it, are mapped to two
             // different target types within one root map call.
-            garageDto.Cars.Should().HaveCount(1);
-            garageDto.Cars[0].Model.Should().Be("Model S");
-            garageDto.CarSummaries.Should().HaveCount(1);
-            garageDto.CarSummaries[0].Text.Should().Be("<Model S>");
+            familyDto.Members.Should().HaveCount(1);
+            familyDto.Members[0].Name.Should().Be("John");
+            familyDto.MemberSummaries.Should().HaveCount(1);
+            familyDto.MemberSummaries[0].Text.Should().Be("<John>");
         }
 
         [Fact]
@@ -1145,32 +1202,33 @@
             {
                 Mappings = new IMapping[]
                 {
-                    new OwnerMapping(),
-                    new CarMapping(),
+                    new PersonMapping(),
                 },
                 EnableRecursionHandling = true,
             };
 
             IMapper mapper = new Mapper(mapperOptions);
 
-            var owner = new Owner { Id = 1, Name = "Jane Doe" };
-            owner.Car = new Car { Id = 1, Model = "Model S", Owner = owner };
+            var alice = new Person { Id = 1, Name = "Alice" };
+            var bob = new Person { Id = 2, Name = "Bob", BestFriend = alice };
+            alice.BestFriend = bob;
 
             // Act
-            var ownerDto = mapper.Map<OwnerDto>(owner);
+            var aliceDto = mapper.Map<PersonDto>(alice);
 
             // Assert
-            ownerDto.Should().NotBeNull();
-            ownerDto.Name.Should().Be("Jane Doe");
+            aliceDto.Should().NotBeNull();
+            aliceDto.Name.Should().Be("Alice");
 
             // No collection plan can register a target here, so the cycle is cut
             // after the source/target pair has been visited MaxCycleVisits times.
-            ownerDto.Car.Should().NotBeNull();
-            ownerDto.Car!.Model.Should().Be("Model S");
-            ownerDto.Car.Owner.Should().NotBeNull();
-            ownerDto.Car.Owner!.Name.Should().Be("Jane Doe");
-            ownerDto.Car.Owner.Car.Should().NotBeNull();
-            ownerDto.Car.Owner.Car!.Owner.Should().BeNull();
+            aliceDto.BestFriend.Should().NotBeNull();
+            aliceDto.BestFriend!.Name.Should().Be("Bob");
+            aliceDto.BestFriend.BestFriend.Should().NotBeNull();
+            aliceDto.BestFriend.BestFriend!.Name.Should().Be("Alice");
+            aliceDto.BestFriend.BestFriend.BestFriend.Should().NotBeNull();
+            aliceDto.BestFriend.BestFriend.BestFriend!.Name.Should().Be("Bob");
+            aliceDto.BestFriend.BestFriend.BestFriend.BestFriend.Should().BeNull();
         }
 
         [Fact]
@@ -1181,8 +1239,7 @@
             {
                 Mappings = new IMapping[]
                 {
-                    new OwnerMapping(),
-                    new CarMapping(),
+                    new PersonMapping(),
                 },
                 EnableRecursionHandling = true,
                 ThrowIfMaxDepthExceeded = true,
@@ -1190,11 +1247,12 @@
 
             IMapper mapper = new Mapper(mapperOptions);
 
-            var owner = new Owner { Id = 1, Name = "Jane Doe" };
-            owner.Car = new Car { Id = 1, Model = "Model S", Owner = owner };
+            var alice = new Person { Id = 1, Name = "Alice" };
+            var bob = new Person { Id = 2, Name = "Bob", BestFriend = alice };
+            alice.BestFriend = bob;
 
             // Act
-            Action action = () => mapper.Map<OwnerDto>(owner);
+            Action action = () => mapper.Map<PersonDto>(alice);
 
             // Assert
             var ex = action.Should().Throw<MappingException>().WithInnerException<InvalidOperationException>().Which;
@@ -1209,8 +1267,7 @@
             {
                 Mappings = new IMapping[]
                 {
-                    new OwnerMapping(),
-                    new CarMapping(),
+                    new PersonMapping(),
                 },
                 EnableRecursionHandling = true,
                 MaxCycleVisits = 1,
@@ -1218,18 +1275,19 @@
 
             IMapper mapper = new Mapper(mapperOptions);
 
-            var owner = new Owner { Id = 1, Name = "Jane Doe" };
-            owner.Car = new Car { Id = 1, Model = "Model S", Owner = owner };
+            var alice = new Person { Id = 1, Name = "Alice" };
+            var bob = new Person { Id = 2, Name = "Bob", BestFriend = alice };
+            alice.BestFriend = bob;
 
             // Act
-            var ownerDto = mapper.Map<OwnerDto>(owner);
+            var aliceDto = mapper.Map<PersonDto>(alice);
 
             // Assert
             // With a single permitted visit the cycle is cut one level earlier than the default.
-            ownerDto.Name.Should().Be("Jane Doe");
-            ownerDto.Car.Should().NotBeNull();
-            ownerDto.Car!.Model.Should().Be("Model S");
-            ownerDto.Car.Owner.Should().BeNull();
+            aliceDto.Name.Should().Be("Alice");
+            aliceDto.BestFriend.Should().NotBeNull();
+            aliceDto.BestFriend!.Name.Should().Be("Bob");
+            aliceDto.BestFriend.BestFriend.Should().BeNull();
         }
 
         [Fact]
@@ -1240,8 +1298,7 @@
             {
                 Mappings = new IMapping[]
                 {
-                    new OwnerMapping(),
-                    new CarMapping(),
+                    new PersonMapping(),
                 },
                 EnableRecursionHandling = true,
                 MaxCycleVisits = 0,
@@ -1249,17 +1306,18 @@
 
             IMapper mapper = new Mapper(mapperOptions);
 
-            var owner = new Owner { Id = 1, Name = "Jane Doe" };
-            owner.Car = new Car { Id = 1, Model = "Model S", Owner = owner };
+            var alice = new Person { Id = 1, Name = "Alice" };
+            var bob = new Person { Id = 2, Name = "Bob", BestFriend = alice };
+            alice.BestFriend = bob;
 
             // Act
-            var ownerDto = mapper.Map<OwnerDto>(owner);
+            var aliceDto = mapper.Map<PersonDto>(alice);
 
             // Assert
             // A value below 1 must not cut the root mapping itself.
-            ownerDto.Should().NotBeNull();
-            ownerDto.Name.Should().Be("Jane Doe");
-            ownerDto.Car!.Owner.Should().BeNull();
+            aliceDto.Should().NotBeNull();
+            aliceDto.Name.Should().Be("Alice");
+            aliceDto.BestFriend!.BestFriend.Should().BeNull();
         }
 
         [Fact]
@@ -1270,9 +1328,9 @@
             {
                 Mappings = new IMapping[]
                 {
-                    new GarageMapping(),
-                    new CarMapping(),
-                    new CarSummaryMapping(),
+                    new FamilyMapping(),
+                    new PersonMapping(),
+                    new PersonSummaryMapping(),
                 },
                 EnableRecursionHandling = true,
                 MaxDepth = 1,
@@ -1281,12 +1339,12 @@
 
             IMapper mapper = new Mapper(mapperOptions);
 
-            var garage = new Garage { Name = "Downtown" };
-            var car = new Car { Id = 1, Model = "Model S", Garage = garage };
-            garage.Cars = new[] { car };
+            var family = new Family { Name = "Miller" };
+            var person = new Person { Id = 1, Name = "John", Family = family };
+            family.Members = new[] { person };
 
             // Act
-            Action action = () => mapper.Map<GarageDto>(garage);
+            Action action = () => mapper.Map<FamilyDto>(family);
 
             // Assert
             // The depth limit is reached on a collection element, which must report the same way
@@ -1303,48 +1361,48 @@
             {
                 Mappings = new IMapping[]
                 {
-                    new GarageMapping(),
-                    new CarMapping(),
-                    new BrandMapping(),
-                    new CarSummaryMapping(),
+                    new FamilyMapping(),
+                    new PersonMapping(),
+                    new PersonSummaryMapping(),
+                    new CountryMapping(),
                 },
                 MaxDepth = 2,
             };
 
             IMapper mapper = new Mapper(mapperOptions);
 
-            var garage = new Garage { Name = "Downtown" };
-            garage.CourtesyCar = new Car
+            var family = new Family { Name = "Miller" };
+            family.Head = new Person
             {
                 Id = 1,
-                Model = "Model S",
-                Brand = new Brand { Id = 1, Name = "Tesla" },
-                Garage = garage,
+                Name = "Anna",
+                Country = new Country { Id = 1, Name = "Switzerland" },
+                Family = family,
             };
-            garage.Cars = new[]
+            family.Members = new[]
             {
-                new Car { Id = 2, Model = "Model 3", Garage = garage },
-                new Car { Id = 3, Model = "Model X", Garage = garage },
+                new Person { Id = 2, Name = "Ben", Family = family },
+                new Person { Id = 3, Name = "Clara", Family = family },
             };
 
             // Act
-            var garageDto = mapper.Map<GarageDto>(garage);
+            var familyDto = mapper.Map<FamilyDto>(family);
 
             // Assert
-            // The courtesy car and the cars all sit at the same depth, so truncating the courtesy
-            // car's branches must not consume the budget of the cars mapped after it.
-            garageDto.CourtesyCar.Should().NotBeNull();
-            garageDto.CourtesyCar!.Model.Should().Be("Model S");
-            garageDto.CourtesyCar.Brand.Should().BeNull();
-            garageDto.CourtesyCar.Garage.Should().BeNull();
+            // The head of the family and its members all sit at the same depth, so truncating the
+            // head's branches must not consume the budget of the members mapped after it.
+            familyDto.Head.Should().NotBeNull();
+            familyDto.Head!.Name.Should().Be("Anna");
+            familyDto.Head.Country.Should().BeNull();
+            familyDto.Head.Family.Should().BeNull();
 
-            garageDto.Cars.Should().HaveCount(2);
-            garageDto.Cars[0].Should().NotBeNull();
-            garageDto.Cars[0].Model.Should().Be("Model 3");
-            garageDto.Cars[0].Garage.Should().BeNull();
-            garageDto.Cars[1].Should().NotBeNull();
-            garageDto.Cars[1].Model.Should().Be("Model X");
-            garageDto.Cars[1].Garage.Should().BeNull();
+            familyDto.Members.Should().HaveCount(2);
+            familyDto.Members[0].Should().NotBeNull();
+            familyDto.Members[0].Name.Should().Be("Ben");
+            familyDto.Members[0].Family.Should().BeNull();
+            familyDto.Members[1].Should().NotBeNull();
+            familyDto.Members[1].Name.Should().Be("Clara");
+            familyDto.Members[1].Family.Should().BeNull();
         }
     }
 }
