@@ -63,7 +63,6 @@
             {
                 Id = 1,
                 Name = "John",
-                CountryId = 2,
                 Country = new Country
                 {
                     Id = 2,

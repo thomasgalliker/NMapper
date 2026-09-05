@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace NMapper.TestData
+namespace NMapper.TestData.Benchmarks
 {
     public class SourceToTargetCollectionsMapping : IMappingWithContext<SourceWithCollections, TargetWithCollections>
     {
