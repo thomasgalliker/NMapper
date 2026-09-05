@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace NMapper.TestData
+namespace NMapper.TestData.Mappings
 {
     public class PersonNotImplementedMapping : IMapping<Person, string>
     {

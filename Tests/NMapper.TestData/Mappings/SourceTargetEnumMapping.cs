@@ -1,4 +1,4 @@
-﻿namespace NMapper.TestData
+﻿namespace NMapper.TestData.Mappings
 {
     public class SourceTargetEnumMapping : IMapping<SourceEnum, TargetEnum>, IMapping<TargetEnum, SourceEnum>
     {

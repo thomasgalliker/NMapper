@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace NMapper.TestData
+namespace NMapper.TestData.Benchmarks
 {
     public static class SourceWithCollectionsHelper
     {
@@ -38,6 +38,16 @@ namespace NMapper.TestData
         }
     }
 
+    /// <summary>
+    /// Throughput fixture for the performance test and the benchmark. It is deliberately flat and
+    /// free of circular references, and is not part of the Person/Family test domain.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Item"/> carries one property per primitive type on purpose, so that the
+    /// benchmark measures per-property copy cost rather than graph traversal. The competing
+    /// mappers it is compared against resolve members by convention and do not track references,
+    /// so a fixture with back-references could not be mapped by them at all.
+    /// </remarks>
     public class SourceWithCollections
     {
         public SourceWithCollections()
